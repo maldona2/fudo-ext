@@ -46,9 +46,36 @@ Usuario API: "Matias maldonado", rol **Integraciones**.
 | Ítems (vía `include` en ventas) | ✅ precio, cantidad, `createdBy`, `canceled`, `cancellationReason`/`Comment` (1 cancelado ese día) |
 | Descuentos | ✅ monto/porcentaje y `canceled` |
 | Pagos | ✅ incluye pagos de ventas **y de gastos** (relación `sale` o `expense`). Medios: Efectivo, QR, Online PedidosYa, … |
-| Caja | ⚠️ `CashRegister` llega **solo con id**, sin atributos. Hay una sola caja (id 1) |
-| Gastos | ⚠️ Llegan **sin atributos** (sin monto ni fecha), solo relaciones. Se ve que existen compras con ítems de productos (proveedor "Los Hornos fabrica"), pero los `ExpenseItem` tampoco traen cantidad/precio. Falta permiso (probablemente `view_expenses_summary` / `list_expense_categories`) |
+| Caja | ✅ Una sola caja: id 1, "Principal" (el nombre llega solo con `fields[cashRegister]=name`) |
+| Gastos | ✅ Monto, fecha, descripción, estado (`PAID`/`UNPAID`), `useInCashCount`, categoría, proveedor, caja, usuario y medio de pago. Las compras traen ítems con producto, cantidad y precio (el `price` del ítem es el **total de la línea**: 120 × Carne suave = 84.000 → 700 c/u = costo del producto) |
 | Usuarios | ⚠️ `/users` devuelve solo 3; otros usuarios (p. ej. el cajero "Leandro") aparecen solo vía `include` |
 
 **Hallazgo:** el rol tiene los permisos `create_cash_counts`, `update_cash_counts`,
 `show_estimated_on_*_cash_counts`: FUDO maneja arqueos internamente, pero ningún endpoint los expone.
+
+### Gotcha: `fields[...]` obligatorio en algunos endpoints
+
+En `/expenses` (y en los tipos incluidos: `expenseItem`, `expenseCategory`, `cashRegister`)
+la API devuelve **solo id y relaciones** si no se pide `fields[tipo]=...` explícitamente.
+No es un problema de permisos. Ejemplo que funciona:
+
+```
+GET /expenses?filter[date]=and(gte.2026-10-18,lte.2026-10-18)
+  &include=expenseItems,expenseItems.product,cashRegister
+  &fields[expense]=amount,date,description,status,useInCashCount,expenseItems,cashRegister
+  &fields[expenseItem]=price,quantity,product&fields[product]=name&fields[cashRegister]=name
+```
+
+Además, los rangos de fecha solo aceptan `gte`/`lte` (no `lt`/`gt`).
+
+### Cuadre de efectivo del 18/10 (caja Principal)
+
+| Concepto | Monto |
+|---|---|
+| Ventas en efectivo | $481.765,05 |
+| Otros medios (PedidosYa $525.100, QR $52.800, tarjeta $79.200) | $657.100,00 |
+| Gastos pagados en efectivo desde la caja (sueldos/Rapiboy) | −$72.200,00 |
+| **Movimiento neto de efectivo** | **$409.565,05** (+ fondo inicial, que la API no expone) |
+
+Las compras a "Los Hornos fabrica" ($343.200) quedan en cuenta corriente (`UNPAID`, sin caja), así que no afectan el efectivo.
+Con esto se puede calcular el **esperado** por día; falta el **contado** del arqueo (consulta a FUDO).

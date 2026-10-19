@@ -67,9 +67,14 @@ def main():
         return f"{len(ps)} pagos; ej: {ps[0] if ps else '-'}"
 
     def expenses():
-        es = list(c.paginate("/expenses", **{"filter[date]": f"and(gte.{day},lte.{day})"}))
-        # Sin permiso suficiente los gastos llegan sin "attributes" (solo relaciones).
-        return f"{len(es)} gastos; ej: {es[0].get('attributes', 'SIN ATRIBUTOS (falta permiso)') if es else '-'}"
+        # En /expenses los atributos solo vienen si se piden con fields[...].
+        es = list(c.paginate("/expenses", **{
+            "filter[date]": f"and(gte.{day},lte.{day})",
+            "fields[expense]": "amount,date,description,status,useInCashCount,expenseCategory,provider,expenseItems",
+        }))
+        total = sum(e["attributes"]["amount"] for e in es)
+        with_items = sum(1 for e in es if e["relationships"]["expenseItems"]["data"])
+        return f"{len(es)} gastos, total {total}, {with_items} con ítems; ej: {es[0]['attributes'] if es else '-'}"
 
     for name, fn in [("products", products), ("ingredients", ingredients), ("sales", sales),
                      ("sale detail", sale_detail), ("payments", payments), ("expenses", expenses)]:
