@@ -1,0 +1,34 @@
+# Análisis de la especificación OpenAPI de FUDO (v1alpha1)
+
+Fuente: `spec/openapi.yml`, descargado el 19/10/2026 de https://api.fu.do/v1alpha1/openapi.yml.
+Cierra el paso 1 de "Próximos pasos" del documento de traspaso (revisar `/products`, `/sales` y caja).
+
+## Resumen de cambios respecto del documento (rev. 2)
+
+| Tema | Doc rev. 2 | Según el spec | Impacto |
+|---|---|---|---|
+| Escritura de **productos** | ❓ | ✅ `POST /products` (requiere `name`, `price`) y `PATCH /products/{id}` con `code`, `cost`, `price`, `stock`, `minStock`, `stockControl`, `active`, `description`, `productCategory` | **Riesgo 3 resuelto.** El catálogo se puede cargar y los precios actualizar por API; el Excel queda como plan B. La app de conteo puede escribir `stock` en productos, no solo en ingredientes. |
+| Buscar producto por **código de barras** | — | ⚠️ `GET /products` **no** filtra por `code` (filtros: `id`, `name`, `productCategoryId`, `stock`, `stockControl`, `active`, `stockLots`) | Hay que sincronizar el catálogo completo en la base propia e indexar `EAN → productId` localmente. |
+| Gasto con **ítems** (ingreso de mercadería) | ✅ "crear gasto con ítems" | ❌ `POST /expenses` acepta `amount`, `date`, `useInCashCount`, `receiptNumber`, `description`, `paymentDate`, `dueDate` y relaciones `expenseCategory`, `paymentMethod`, `provider`, `cashRegister`, `receiptType`, `commercialDocument`. **`expenseItems` solo se lee**, no se puede crear. Sí admite carga en lote (`bulk:data`) | La compra por API no sumaría stock sola. Plan: crear el gasto (monto/proveedor) + `PATCH stock` en cada producto (`stock += cantidad`), o cargar la compra con ítems a mano en FUDO. **A verificar** con FUDO si hay otra vía. |
+| **Ventas** | lectura | `GET /sales` + `PATCH /sales/{id}` (solo `comment`, `people`, `customerName`, `saleState`, `saleType`, mesa/identificador). No hay `POST /sales` | Lectura alcanza para sincronizar. |
+| Filtros de ventas | — | `createdAt`, `closedAt`, `saleType`, `saleState`, `userId`, `shiftId`, `paymentMethodId`, `tableId`, `origin`, `notInvoiced`… | `shiftId` (turno) es prometedor para armar el resumen por turno/caja. |
+| **Cajas / arqueos** | ⚠️ sin recurso | Confirmado: no hay `/cash-registers` ni `/shifts`. `cashRegister` aparece como relación en ventas, gastos, pagos y usuarios (`tablesCashRegister`, `takeAwayCashRegister`, `deliveryCashRegister`). Existe el filtro `shiftId` en ventas, pero no un recurso de turno | **Riesgo 2 sigue abierto.** Se puede calcular el esperado por caja/turno (pagos + gastos con `useInCashCount`), pero no el monto contado por el cajero. Consultar a FUDO. |
+| Pagos | lectura | `GET /payments` filtra por `createdAt`, `paidAt`, `paymentMethod`, `canceled`, `receivedBy`, `sales`, `expenseId`. `POST /payments` es solo para pagos de **gastos** | El filtro por caja **no** está en pagos: hay que pasar por `include=cashRegister` en ventas. |
+| Ítems | lectura/escritura | `GET /items` **no tiene `filter`** (solo `page`, `sort`, `fields`, `include`) | Para el detector de cancelaciones conviene traer ítems vía `GET /sales?include=items,items.createdBy` filtrando ventas por fecha. |
+| Webhooks | no hay | Confirmado: no hay | Polling. |
+| Rate limit | 429 + `Retry-After` | Confirmado, body en texto plano | Implementado en `fudo/client.py`. |
+
+## Endpoints disponibles
+
+GET/POST/PATCH en: customers (+DELETE), discounts, expenses, expense-categories (+DELETE),
+items, kitchens (+DELETE), product-categories, product-modifiers, products, providers (+DELETE),
+roles, rooms, tables, users. Solo GET/PATCH: ingredients, sales. Solo GET: payment-methods.
+`POST /payments` (pagos de gastos) y `POST /subitems`.
+
+## Qué queda para la prueba con credenciales reales (Fase 0.5)
+
+1. ¿`PATCH /products/{id}` con `stock` funciona en la cuenta y queda registrado como ajuste de stock?
+2. ¿Qué devuelve `include=cashRegister` en una venta? ¿Trae nombre de caja/turno?
+3. ¿El `shiftId` se puede obtener desde alguna relación (para saber qué turnos existen)?
+4. ¿El usuario API ve todas las sucursales o una cuenta por sucursal?
+5. Medir el rate limit real.
