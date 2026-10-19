@@ -25,7 +25,8 @@ def check(name, fn):
 
 def main():
     day = dt.date.fromisoformat(sys.argv[1]) if len(sys.argv) > 1 else dt.date.today() - dt.timedelta(days=1)
-    rng = f"and(gte.{day}T00:00:00Z,lt.{day + dt.timedelta(days=1)}T00:00:00Z)"
+    # Día en hora Argentina (UTC-3). Los rangos solo aceptan gte/lte.
+    rng = f"and(gte.{day}T03:00:00Z,lte.{day + dt.timedelta(days=1)}T02:59:59Z)"
     c = FudoClient.from_env()
 
     def token():

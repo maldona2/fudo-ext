@@ -50,8 +50,8 @@ class FudoClient:
     @classmethod
     def from_env(cls):
         load_dotenv()
-        key = os.environ.get("FUDO_API_KEY")
-        secret = os.environ.get("FUDO_API_SECRET")
+        key = os.environ.get("FUDO_API_KEY") or os.environ.get("API_KEY")
+        secret = os.environ.get("FUDO_API_SECRET") or os.environ.get("API_SECRET")
         if not key or not secret:
             raise SystemExit("Faltan FUDO_API_KEY / FUDO_API_SECRET (ver .env.example)")
         return cls(
