@@ -68,7 +68,8 @@ def main():
 
     def expenses():
         es = list(c.paginate("/expenses", **{"filter[date]": f"and(gte.{day},lte.{day})"}))
-        return f"{len(es)} gastos; ej: {es[0]['attributes'] if es else '-'}"
+        # Sin permiso suficiente los gastos llegan sin "attributes" (solo relaciones).
+        return f"{len(es)} gastos; ej: {es[0].get('attributes', 'SIN ATRIBUTOS (falta permiso)') if es else '-'}"
 
     for name, fn in [("products", products), ("ingredients", ingredients), ("sales", sales),
                      ("sale detail", sale_detail), ("payments", payments), ("expenses", expenses)]:

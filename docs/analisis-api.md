@@ -32,3 +32,23 @@ roles, rooms, tables, users. Solo GET/PATCH: ingredients, sales. Solo GET: payme
 3. ¿El `shiftId` se puede obtener desde alguna relación (para saber qué turnos existen)?
 4. ¿El usuario API ve todas las sucursales o una cuenta por sucursal?
 5. Medir el rate limit real.
+
+## Resultados de la prueba en Los Hornos Belgrano (19/10/2026, datos del 18/10)
+
+Usuario API: "Matias maldonado", rol **Integraciones**.
+
+| Recurso | Resultado |
+|---|---|
+| Token | ✅ |
+| Productos | ✅ 136 productos, 71 con código, 97 con `stockControl`. Precio, costo y stock visibles |
+| Ingredientes | ✅ 0: el stock de Los Hornos vive en **productos** (riesgo 13: en la práctica se usa producto con stock propio) |
+| Ventas | ✅ 36 ventas, todas `CLOSED`, total $1.138.865,05. `saleType` TAKEAWAY, con nombre/teléfono del cliente |
+| Ítems (vía `include` en ventas) | ✅ precio, cantidad, `createdBy`, `canceled`, `cancellationReason`/`Comment` (1 cancelado ese día) |
+| Descuentos | ✅ monto/porcentaje y `canceled` |
+| Pagos | ✅ incluye pagos de ventas **y de gastos** (relación `sale` o `expense`). Medios: Efectivo, QR, Online PedidosYa, … |
+| Caja | ⚠️ `CashRegister` llega **solo con id**, sin atributos. Hay una sola caja (id 1) |
+| Gastos | ⚠️ Llegan **sin atributos** (sin monto ni fecha), solo relaciones. Se ve que existen compras con ítems de productos (proveedor "Los Hornos fabrica"), pero los `ExpenseItem` tampoco traen cantidad/precio. Falta permiso (probablemente `view_expenses_summary` / `list_expense_categories`) |
+| Usuarios | ⚠️ `/users` devuelve solo 3; otros usuarios (p. ej. el cajero "Leandro") aparecen solo vía `include` |
+
+**Hallazgo:** el rol tiene los permisos `create_cash_counts`, `update_cash_counts`,
+`show_estimated_on_*_cash_counts`: FUDO maneja arqueos internamente, pero ningún endpoint los expone.
