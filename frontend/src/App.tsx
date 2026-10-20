@@ -1,25 +1,79 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { Layout } from '@/components/Layout';
+import { Notice } from '@/components/Notice';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { CountDetailPage } from '@/pages/CountDetailPage';
+import { CountPage } from '@/pages/CountPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { PanelPage } from '@/pages/PanelPage';
+import { UsersPage } from '@/pages/UsersPage';
+import type { Role } from '@/types/api';
+
+function RequireUser({ role, children }: { role?: Role; children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Notice>Cargando…</Notice>;
+  if (!user) return <Navigate to="/ingresar" replace />;
+  if (role && user.role !== role) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 function Home() {
+  const { user } = useAuth();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Starter Template</h1>
-        <p className="text-muted-foreground">
-          A modern full-stack template with React, Node.js, and PostgreSQL
-        </p>
-      </div>
-    </div>
+    <Navigate to={user?.role === 'owner' ? '/panel' : '/contar'} replace />
   );
 }
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/ingresar" element={<LoginPage />} />
+          <Route
+            element={
+              <RequireUser>
+                <Layout />
+              </RequireUser>
+            }
+          >
+            <Route path="/" element={<Home />} />
+            <Route path="/contar" element={<CountPage />} />
+            <Route
+              path="/panel"
+              element={
+                <RequireUser role="owner">
+                  <PanelPage />
+                </RequireUser>
+              }
+            />
+            <Route
+              path="/panel/conteos/:id"
+              element={
+                <RequireUser role="owner">
+                  <CountDetailPage />
+                </RequireUser>
+              }
+            />
+            <Route
+              path="/usuarios"
+              element={
+                <RequireUser role="owner">
+                  <UsersPage />
+                </RequireUser>
+              }
+            />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
