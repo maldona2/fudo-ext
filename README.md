@@ -64,6 +64,18 @@ Un proyecto con tres servicios:
 - Si Postgres exige SSL con certificado propio, ver `DB_SSL_NO_VERIFY` en `backend/src/db/connect.ts`.
 - Después del primer login del dueño, sacar `BOOTSTRAP_OWNER_PASSWORD` de las variables.
 
+### Otro comercio
+
+Crear un proyecto de Railway nuevo por comercio, con sus propios servicios Postgres,
+backend y frontend, y las mismas variables de configuración de la tabla anterior. Cada
+proyecto debe tener sus propias `FUDO_API_KEY` y `FUDO_API_SECRET`, el
+`TELEGRAM_CHAT_ID` del dueño de ese comercio y sus propios valores
+`BOOTSTRAP_OWNER_EMAIL`, `BOOTSTRAP_OWNER_PASSWORD` y `BOOTSTRAP_OWNER_NAME`.
+`RECOUNT_MIN_DIFFERENCE` es opcional y vale `1` por defecto; definirlo si se quiere
+otro umbral de diferencia para pedir un recuento.
+
+Multi-comercio en un solo deploy queda para cuando haya 3+ comercios o haga falta un panel del implementador.
+
 ## Scripts de solo lectura (tools/)
 
 ### Resumen diario (solo lectura)
