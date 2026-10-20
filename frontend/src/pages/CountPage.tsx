@@ -11,7 +11,7 @@ import {
   errorMessage,
   products as productsApi,
 } from '@/lib/api';
-import { plural } from '@/lib/format';
+import { normalize, plural } from '@/lib/format';
 import {
   draftToEntries,
   parseQuantity,
@@ -40,9 +40,6 @@ const loadDraft = (): CountDraft => {
     return {};
   }
 };
-
-const normalize = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export function CountPage() {
   const { user } = useAuth();

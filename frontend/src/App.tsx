@@ -10,6 +10,7 @@ import { Notice } from '@/components/Notice';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CountDetailPage } from '@/pages/CountDetailPage';
 import { CountPage } from '@/pages/CountPage';
+import { PacksPage } from '@/pages/PacksPage';
 import { ListsPage } from '@/pages/ListsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PanelPage } from '@/pages/PanelPage';
@@ -67,6 +68,14 @@ function App() {
               element={
                 <RequireUser role="owner">
                   <ListsPage />
+                </RequireUser>
+              }
+            />
+            <Route
+              path="/bultos"
+              element={
+                <RequireUser role="owner">
+                  <PacksPage />
                 </RequireUser>
               }
             />

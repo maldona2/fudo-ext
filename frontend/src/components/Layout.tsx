@@ -33,6 +33,11 @@ export function Layout() {
               </NavLink>
             )}
             {isOwner && (
+              <NavLink to="/bultos" className={link}>
+                Bultos
+              </NavLink>
+            )}
+            {isOwner && (
               <NavLink to="/usuarios" className={link}>
                 Usuarios
               </NavLink>

@@ -31,3 +31,9 @@ export const formatDateTime = (iso: string) => {
 
 export const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
+
+export const normalize = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();

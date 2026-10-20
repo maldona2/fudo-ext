@@ -13,6 +13,7 @@ export interface CountProduct {
   name: string;
   code: string | null;
   category: string | null;
+  pack: { units: number; label: string } | null;
 }
 
 export interface CountSummary {

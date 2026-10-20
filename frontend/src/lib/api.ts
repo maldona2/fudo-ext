@@ -66,6 +66,15 @@ export const products = {
       .then((r) => r.data.products),
 };
 
+export const productPacks = {
+  save: (packs: { productId: string; units: number; label: string }[]) =>
+    api.put('/product-packs', { packs }).then(() => undefined),
+  remove: (productId: string) =>
+    api
+      .delete(`/product-packs/${encodeURIComponent(productId)}`)
+      .then(() => undefined),
+};
+
 export const counts = {
   create: (input: {
     entries: { productId: string; counted: number }[];
