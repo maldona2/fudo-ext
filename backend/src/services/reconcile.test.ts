@@ -16,6 +16,9 @@ const base = (): ReconcileInput => ({
 });
 
 describe('reconcileCount', () => {
+  it('initializes firstCounted to null for every reconciled line', () => {
+    expect(reconcileCount(base())[0]).toHaveProperty('firstCounted', null);
+  });
   it('expects previous count plus purchases minus sales since that count', () => {
     const input = base();
     input.movements = [

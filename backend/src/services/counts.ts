@@ -22,7 +22,17 @@ import {
 // (and would mean paging through too many sales): fall back to FUDO stock.
 const MAX_PREVIOUS_AGE_MS = 45 * 24 * 60 * 60 * 1000;
 
+export interface CountCheck {
+  id: string;
+  userId: string;
+  createdAt: Date;
+  usedAt: Date | null;
+  entries: { productId: string; counted: number }[];
+  recountIds: string[];
+}
+
 export interface NewCountRow {
+  checkId: string | null;
   createdBy: string;
   countedAt: Date;
   note: string | null;
@@ -32,6 +42,13 @@ export interface NewCountRow {
 }
 
 export interface CountsRepo {
+  insertCheck(row: {
+    userId: string;
+    listId: string | null;
+    entries: { productId: string; counted: number }[];
+    recountIds: string[];
+  }): Promise<string>;
+  getCheck(id: string): Promise<CountCheck | null>;
   latestByProduct(productIds: string[]): Promise<Map<string, PreviousCount>>;
   insert(row: NewCountRow): Promise<string>;
   list(limit: number): Promise<CountRecord[]>;
@@ -51,6 +68,7 @@ export interface ShortageEvent {
 }
 
 interface Deps {
+  recountMinDifference: number;
   repo: CountsRepo;
   lists: { get(id: string): Promise<CountList | null> };
   fudo: {
@@ -72,54 +90,103 @@ async function fromFudo<T>(read: () => Promise<T>): Promise<T> {
 
 export function createCountsService({
   repo,
+  recountMinDifference,
   lists,
   fudo,
   notify,
   now = () => new Date(),
 }: Deps) {
+  async function computeLines(input: NewCount, countedAt: Date) {
+    const list = input.listId ? await lists.get(input.listId) : null;
+    if (input.listId && !list) {
+      throw new HttpError(400, 'La lista de conteo no existe');
+    }
+    const products = await fromFudo(() => fudo.products());
+    const byId = new Map(products.map((p) => [p.id, p]));
+    if (input.entries.some((e) => !byId.has(e.productId))) {
+      throw new HttpError(400, 'Hay productos que no se pueden contar');
+    }
+
+    const ids = input.entries.map((e) => e.productId);
+    const previous = new Map(
+      [...(await repo.latestByProduct(ids))].filter(
+        ([, p]) =>
+          countedAt.getTime() - p.countedAt.getTime() <= MAX_PREVIOUS_AGE_MS
+      )
+    );
+
+    let movements: StockMovement[] = [];
+    if (previous.size > 0) {
+      const from = new Date(
+        Math.min(...[...previous.values()].map((p) => p.countedAt.getTime()))
+      );
+      movements = await fromFudo(() => fudo.movements(from, countedAt));
+    }
+
+    const lines = reconcileCount({
+      now: countedAt,
+      entries: input.entries,
+      products: new Map(
+        products.map((p) => [
+          p.id,
+          { name: p.name, cost: p.cost, systemStock: p.stock },
+        ])
+      ),
+      previous,
+      movements,
+    });
+    return { list, lines };
+  }
+
   return {
+    async check(user: User, input: NewCount) {
+      const { list, lines } = await computeLines(input, now());
+      const recount = lines
+        .filter((line) => Math.abs(line.difference) >= recountMinDifference)
+        .map((line) => line.productId);
+      const checkId = await repo.insertCheck({
+        userId: user.id,
+        listId: list?.id ?? null,
+        entries: input.entries,
+        recountIds: recount,
+      });
+      return { checkId, recount };
+    },
+
     async create(user: User, input: NewCount) {
       const countedAt = now();
-      const list = input.listId ? await lists.get(input.listId) : null;
-      if (input.listId && !list) {
-        throw new HttpError(400, 'La lista de conteo no existe');
-      }
-      const products = await fromFudo(() => fudo.products());
-      const byId = new Map(products.map((p) => [p.id, p]));
-      if (input.entries.some((e) => !byId.has(e.productId))) {
-        throw new HttpError(400, 'Hay productos que no se pueden contar');
-      }
-
-      const ids = input.entries.map((e) => e.productId);
-      const previous = new Map(
-        [...(await repo.latestByProduct(ids))].filter(
-          ([, p]) =>
-            countedAt.getTime() - p.countedAt.getTime() <= MAX_PREVIOUS_AGE_MS
-        )
-      );
-
-      let movements: StockMovement[] = [];
-      if (previous.size > 0) {
-        const from = new Date(
-          Math.min(...[...previous.values()].map((p) => p.countedAt.getTime()))
+      const check = input.checkId ? await repo.getCheck(input.checkId) : null;
+      if (input.checkId) {
+        if (
+          !check ||
+          check.userId !== user.id ||
+          check.usedAt !== null ||
+          countedAt.getTime() - check.createdAt.getTime() > 2 * 60 * 60 * 1000
+        ) {
+          throw new HttpError(400, 'El recuento venció. Volvé a empezar.');
+        }
+        const submitted = new Set(
+          input.entries.map((entry) => entry.productId)
         );
-        movements = await fromFudo(() => fudo.movements(from, countedAt));
+        if (check.recountIds.some((id) => !submitted.has(id))) {
+          throw new HttpError(400, 'Falta recontar productos.');
+        }
       }
-
-      const lines = reconcileCount({
-        now: countedAt,
-        entries: input.entries,
-        products: new Map(
-          products.map((p) => [
-            p.id,
-            { name: p.name, cost: p.cost, systemStock: p.stock },
-          ])
-        ),
-        previous,
-        movements,
-      });
+      const { list, lines } = await computeLines(input, countedAt);
+      if (check) {
+        const firstCounts = new Map(
+          check.entries.map((entry) => [entry.productId, entry.counted])
+        );
+        const recountIds = new Set(check.recountIds);
+        for (const line of lines) {
+          if (recountIds.has(line.productId)) {
+            line.firstCounted = firstCounts.get(line.productId) ?? null;
+          }
+        }
+      }
       const summary = summarizeLines(lines);
       const id = await repo.insert({
+        checkId: input.checkId ?? null,
         createdBy: user.id,
         countedAt,
         note: input.note || null,

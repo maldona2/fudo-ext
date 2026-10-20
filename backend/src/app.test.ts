@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createApp } from './app.js';
 import type { Services, User } from './domain/types.js';
+import { reconcileCount } from './services/reconcile.js';
 import { HttpError } from './utils/httpError.js';
 
 const owner: User = {
@@ -27,6 +28,7 @@ const summary = {
   surplusValue: 0,
 };
 
+const CHECK_ID = '77777777-7777-4777-8777-777777777777';
 const COUNT_ID = '33333333-3333-4333-8333-333333333333';
 const LIST_ID = '55555555-5555-4555-8555-555555555555';
 
@@ -68,6 +70,15 @@ const makeServices = () => {
       ],
     },
     counts: {
+      check: async (_user, input) => {
+        created.push(input);
+        return {
+          checkId: CHECK_ID,
+          recount: ['14'],
+          expected: 12,
+          difference: -2,
+        };
+      },
       create: async (_user, input) => {
         created.push(input);
         return { id: COUNT_ID, summary };
@@ -210,6 +221,7 @@ describe('POST /api/counts', () => {
   });
 
   it.each([
+    ['invalid check id', { ...valid, checkId: 'x' }],
     ['no entries', { entries: [] }],
     ['negative quantity', { entries: [{ productId: '14', counted: -1 }] }],
     ['non numeric product id', { entries: [{ productId: 'abc', counted: 1 }] }],
@@ -259,6 +271,124 @@ describe('POST /api/counts', () => {
   });
 });
 
+describe('POST /api/counts/check', () => {
+  const valid = { entries: [{ productId: '14', counted: 10 }] };
+
+  it('requires a session', async () => {
+    const { services } = makeServices();
+    expect(
+      (await request(createApp(services)).post('/api/counts/check').send(valid))
+        .status
+    ).toBe(401);
+  });
+
+  it.each([
+    ['missing entries', {}],
+    ['empty entries', { entries: [] }],
+    ['negative quantity', { entries: [{ productId: '14', counted: -1 }] }],
+    [
+      'quantity above range',
+      { entries: [{ productId: '14', counted: 1_000_001 }] },
+    ],
+    ['non numeric id', { entries: [{ productId: 'abc', counted: 1 }] }],
+    ['quantity as text', { entries: [{ productId: '14', counted: '10' }] }],
+    ['duplicate product', { entries: [valid.entries[0], valid.entries[0]] }],
+    ['unknown fields', { ...valid, expected: 12 }],
+    [
+      'unknown entry fields',
+      { entries: [{ ...valid.entries[0], expected: 12 }] },
+    ],
+    ['long note', { ...valid, note: 'x'.repeat(501) }],
+    ['invalid list', { ...valid, listId: 'diario' }],
+    ['checkId', { ...valid, checkId: CHECK_ID }],
+    [
+      'too many entries',
+      {
+        entries: Array.from({ length: 2001 }, (_, i) => ({
+          productId: String(i),
+          counted: 0,
+        })),
+      },
+    ],
+  ])('rejects %s with 400', async (_name, body) => {
+    const { services, created } = makeServices();
+    const res = await request(createApp(services))
+      .post('/api/counts/check')
+      .set(...asCounter)
+      .send(body);
+    expect(res.status).toBe(400);
+    expect(created).toHaveLength(0);
+  });
+
+  it.each([asCounter, asOwner])(
+    'returns only the check id and recount product ids to %s',
+    async (header, cookie) => {
+      const { services, created } = makeServices();
+      const res = await request(createApp(services))
+        .post('/api/counts/check')
+        .set(header, cookie)
+        .send(valid);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ checkId: CHECK_ID, recount: ['14'] });
+      expect(created).toEqual([valid]);
+    }
+  );
+
+  it('blocks the fourth check per user in 30 minutes and permits another user', async () => {
+    const { services } = makeServices();
+    let time = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => time);
+    try {
+      const app = createApp(services);
+      for (let i = 0; i < 3; i++) {
+        expect(
+          (
+            await request(app)
+              .post('/api/counts/check')
+              .set(...asCounter)
+              .send(valid)
+          ).status
+        ).toBe(200);
+      }
+      expect(
+        (
+          await request(app)
+            .post('/api/counts/check')
+            .set(...asCounter)
+            .send(valid)
+        ).status
+      ).toBe(429);
+      expect(
+        (
+          await request(app)
+            .post('/api/counts/check')
+            .set(...asOwner)
+            .send(valid)
+        ).status
+      ).toBe(200);
+      expect(
+        (
+          await request(app)
+            .post('/api/counts')
+            .set(...asCounter)
+            .send({ ...valid, checkId: CHECK_ID })
+        ).status
+      ).toBe(201);
+      time += 30 * 60 * 1000 + 1;
+      expect(
+        (
+          await request(app)
+            .post('/api/counts/check')
+            .set(...asCounter)
+            .send(valid)
+        ).status
+      ).toBe(200);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+});
+
 describe('owner-only routes', () => {
   it.each([
     ['get', '/api/counts'],
@@ -303,6 +433,44 @@ describe('owner-only routes', () => {
       .set(...asOwner);
 
     expect(res.status).toBe(404);
+  });
+
+  it('serializes the first and final counts only in the owner detail', async () => {
+    const { services } = makeServices();
+    const get = services.counts.get;
+    services.counts.get = async (id) => {
+      const detail = await get(id);
+      if (!detail) return null;
+      const lines = reconcileCount({
+        now: new Date(),
+        entries: [{ productId: '14', counted: 10 }],
+        products: new Map([
+          ['14', { name: 'Carne suave', systemStock: 12, cost: 700 }],
+        ]),
+        previous: new Map(),
+        movements: [],
+      });
+      return {
+        ...detail,
+        lines: lines.map((line) => ({ ...line, firstCounted: 8 })),
+      };
+    };
+    const app = createApp(services);
+    const res = await request(app)
+      .get(`/api/counts/${COUNT_ID}`)
+      .set(...asOwner);
+    expect(res.status).toBe(200);
+    expect(res.body.count.lines[0]).toMatchObject({
+      firstCounted: 8,
+      counted: 10,
+    });
+    expect(
+      (
+        await request(app)
+          .get(`/api/counts/${COUNT_ID}`)
+          .set(...asCounter)
+      ).status
+    ).toBe(403);
   });
 
   it('returns a count to the owner', async () => {

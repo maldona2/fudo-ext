@@ -41,6 +41,7 @@ export interface CountLine {
   productId: string;
   name: string;
   counted: number;
+  firstCounted: number | null;
   systemStock: number;
   cost: number | null;
   basis: 'previous_count' | 'system';
@@ -97,6 +98,7 @@ export function reconcileCount(input: ReconcileInput): CountLine[] {
       productId,
       name: product.name,
       counted,
+      firstCounted: null,
       systemStock: product.systemStock,
       cost: product.cost,
       basis: previous ? 'previous_count' : 'system',

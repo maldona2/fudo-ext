@@ -12,9 +12,14 @@ const required = (name: string): string => {
 const optional = (name: string) => process.env[name] || undefined;
 
 export function loadConfig() {
+  const recountMinDifference = Number(optional('RECOUNT_MIN_DIFFERENCE') ?? 1);
+  if (!Number.isFinite(recountMinDifference) || recountMinDifference <= 0) {
+    throw new Error('RECOUNT_MIN_DIFFERENCE must be a positive number');
+  }
   const telegramToken = optional('TELEGRAM_BOT_TOKEN');
   const telegramChats = optional('TELEGRAM_CHAT_ID');
   return {
+    recountMinDifference,
     port: Number(process.env.PORT || 5001),
     fudo: {
       apiKey: required('FUDO_API_KEY'),

@@ -38,6 +38,7 @@ const services: Services = {
   users: usersService,
   products: productsService,
   counts: createCountsService({
+    recountMinDifference: config.recountMinDifference,
     repo: countsRepo(pool),
     lists,
     fudo: {

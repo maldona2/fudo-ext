@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import type { CountRecord } from '../../domain/types.js';
+import { HttpError } from '../../utils/httpError.js';
 import type { CountsRepo } from '../../services/counts.js';
 import type { CountLine, PreviousCount } from '../../services/reconcile.js';
 
@@ -48,6 +49,41 @@ const toRecord = (r: CountRow): CountRecord => ({
 
 export function countsRepo(pool: Pool): CountsRepo {
   return {
+    async insertCheck({ userId, listId, entries, recountIds }) {
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO count_checks (user_id, list_id, entries, recount_ids)
+         VALUES ($1, $2, $3::jsonb, $4::text[]) RETURNING id`,
+        [userId, listId, JSON.stringify(entries), recountIds]
+      );
+      return rows[0].id;
+    },
+
+    async getCheck(id) {
+      const { rows } = await pool.query<{
+        id: string;
+        user_id: string;
+        created_at: Date;
+        used_at: Date | null;
+        entries: { productId: string; counted: number }[];
+        recount_ids: string[];
+      }>(
+        `SELECT id, user_id, created_at, used_at, entries, recount_ids
+           FROM count_checks WHERE id = $1`,
+        [id]
+      );
+      const row = rows[0];
+      return row
+        ? {
+            id: row.id,
+            userId: row.user_id,
+            createdAt: row.created_at,
+            usedAt: row.used_at,
+            entries: row.entries,
+            recountIds: row.recount_ids,
+          }
+        : null;
+    },
+
     async latestByProduct(productIds) {
       const { rows } = await pool.query<{
         product_id: string;
@@ -68,10 +104,32 @@ export function countsRepo(pool: Pool): CountsRepo {
       );
     },
 
-    async insert({ createdBy, countedAt, note, list, summary, lines }) {
+    async insert({
+      checkId,
+      createdBy,
+      countedAt,
+      note,
+      list,
+      summary,
+      lines,
+    }) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
+        if (checkId) {
+          // Claim under the row lock before saving: concurrent submissions
+          // cannot both consume the same check. A failed insert rolls it back.
+          const claimed = await client.query(
+            `UPDATE count_checks SET used_at = clock_timestamp()
+              WHERE id = $1 AND user_id = $2 AND used_at IS NULL
+                AND created_at >= clock_timestamp() - interval '2 hours'
+              RETURNING id`,
+            [checkId, createdBy]
+          );
+          if (claimed.rowCount !== 1) {
+            throw new HttpError(400, 'El recuento venció. Volvé a empezar.');
+          }
+        }
         const { rows } = await client.query<{ id: string }>(
           `INSERT INTO counts (created_by, counted_at, note, list_id,
              list_name, products, with_difference, missing_units,
@@ -98,9 +156,9 @@ export function countsRepo(pool: Pool): CountsRepo {
             `INSERT INTO count_lines (count_id, product_id, product_name,
                counted_at, counted, system_stock, cost, basis,
                previous_counted, previous_counted_at, bought, sold, expected,
-               difference, difference_value)
+               difference, difference_value, first_counted)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-               $14, $15)`,
+               $14, $15, $16)`,
             [
               id,
               l.productId,
@@ -117,6 +175,7 @@ export function countsRepo(pool: Pool): CountsRepo {
               l.expected,
               l.difference,
               l.differenceValue,
+              l.firstCounted,
             ]
           );
         }
@@ -153,6 +212,7 @@ export function countsRepo(pool: Pool): CountsRepo {
         product_id: string;
         product_name: string;
         counted: string;
+        first_counted: string | null;
         system_stock: string;
         cost: string | null;
         basis: CountLine['basis'];
@@ -164,7 +224,7 @@ export function countsRepo(pool: Pool): CountsRepo {
         difference: string;
         difference_value: string | null;
       }>(
-        `SELECT product_id, product_name, counted, system_stock, cost, basis,
+        `SELECT product_id, product_name, counted, first_counted, system_stock, cost, basis,
                 previous_counted, previous_counted_at, bought, sold, expected,
                 difference, difference_value
            FROM count_lines
@@ -179,6 +239,7 @@ export function countsRepo(pool: Pool): CountsRepo {
           productId: l.product_id,
           name: l.product_name,
           counted: nn(l.counted),
+          firstCounted: n(l.first_counted),
           systemStock: nn(l.system_stock),
           cost: n(l.cost),
           basis: l.basis,

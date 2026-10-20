@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { CountRecord, Services } from '../domain/types.js';
+import { createRateLimiter } from '../middleware/rateLimit.js';
 import { requireRole, requireUser } from '../middleware/auth.js';
 import { asyncHandler, parse } from '../utils/http.js';
 import { HttpError } from '../utils/httpError.js';
 
-const createSchema = z
+const checkSchema = z
   .object({
     entries: z
       .array(
@@ -27,6 +28,10 @@ const createSchema = z
     listId: z.string().uuid().optional(),
   })
   .strict();
+
+const createSchema = checkSchema.extend({
+  checkId: z.string().uuid().optional(),
+});
 
 const listSchema = z
   .object({ limit: z.coerce.number().int().min(1).max(200).default(50) })
@@ -50,6 +55,17 @@ const serializeRecord = (c: CountRecord) => ({
 export function countsRoutes(services: Services): Router {
   const router = Router();
   router.use(requireUser(services.auth));
+  // ponytail: in-memory; resets on restart. Move to count_checks if needed.
+  const checkLimiter = createRateLimiter({ windowMs: 30 * 60 * 1000, max: 3 });
+  router.post(
+    '/check',
+    checkLimiter.middleware((req) => req.user!.id),
+    asyncHandler(async (req, res) => {
+      const input = parse(checkSchema, req.body);
+      const result = await services.counts.check(req.user!, input);
+      res.json({ checkId: result.checkId, recount: result.recount });
+    })
+  );
 
   router.post(
     '/',
@@ -91,6 +107,7 @@ export function countsRoutes(services: Services): Router {
             productId: l.productId,
             name: l.name,
             counted: l.counted,
+            firstCounted: l.firstCounted,
             systemStock: l.systemStock,
             cost: l.cost,
             basis: l.basis,

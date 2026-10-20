@@ -48,6 +48,7 @@ export interface ShrinkageRow {
 }
 
 export interface NewCount {
+  checkId?: string;
   entries: { productId: string; counted: number }[];
   note?: string;
   listId?: string;
@@ -91,6 +92,10 @@ export interface Services {
     listForCount(): Promise<CountProduct[]>;
   };
   counts: {
+    check(
+      user: User,
+      input: NewCount
+    ): Promise<{ checkId: string; recount: string[] }>;
     create(
       user: User,
       input: NewCount
