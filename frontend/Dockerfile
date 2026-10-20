@@ -19,4 +19,4 @@ ENV BACKEND_URL=http://backend:5000
 ENV BACKEND_DOMAIN=localhost
 
 EXPOSE 3000
-CMD ["/bin/sh", "-c", "envsubst '$$BACKEND_URL $$BACKEND_DOMAIN' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "NS=$(awk '/^nameserver/{print $2; exit}' /etc/resolv.conf); case $NS in *:*) NS=\"[$NS]\";; esac; export DNS_RESOLVER=$NS && envsubst '$$BACKEND_URL $$BACKEND_DOMAIN $$DNS_RESOLVER' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
