@@ -1,6 +1,52 @@
+# Environment variables
 .env
+.env.local
+.env.*.local
 *.secret
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Python
 __pycache__/
 .venv/
-.token-cache.json
+
+# Local data (stock snapshots live on the "datos" branch)
 data/
+
+# Agent local artifacts
+.local/
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI agent local configuration
+.ai/local/rules/*
+!.ai/local/rules/.gitkeep
+.ai/local/skills/*
+!.ai/local/skills/.gitkeep
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep

@@ -1,0 +1,59 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=/api
+    ports:
+      - '3000:3000'
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=/api
+      - BACKEND_URL=http://backend:5000
+      - BACKEND_DOMAIN=localhost
+  backend:
+    build: ./backend
+    ports:
+      - '5001:5000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      # DATABASE_URL lo aporta cada overlay: dev con valor local, prod
+      # obligando a setearlo (sin default inseguro). El backend además falla
+      # al arrancar si falta (ver backend/src/db/connect.ts).
+      - FRONTEND_URL=http://localhost:3000
+      - LOG_LEVEL=info
+    volumes:
+      - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:5000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mydb
+    # Sin port binding por defecto: el overlay dev expone 5433 para acceso
+    # local; en prod Postgres queda accesible solo dentro de la red Docker.
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U user -d mydb']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres-data:

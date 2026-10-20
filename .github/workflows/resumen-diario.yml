@@ -44,7 +44,7 @@ jobs:
         # Solo en la corrida programada: una corrida manual de otra fecha no es "apertura".
         if: github.event_name == 'schedule' || inputs.day == ''
         run: |
-          python3 scripts/stock_snapshot.py --dir datos/stock
+          python3 tools/scripts/stock_snapshot.py --dir datos/stock
           cd datos
           git add -A
           if ! git diff --cached --quiet; then
@@ -53,7 +53,7 @@ jobs:
           fi
 
       - name: Resumen del día
-        run: python3 scripts/daily_summary.py $DAY --telegram
+        run: python3 tools/scripts/daily_summary.py $DAY --telegram
 
       - name: Conciliación de stock
-        run: python3 scripts/stock_reconcile.py $DAY --dir datos/stock --telegram
+        run: python3 tools/scripts/stock_reconcile.py $DAY --dir datos/stock --telegram
