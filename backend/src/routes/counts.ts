@@ -24,6 +24,7 @@ const createSchema = z
         'duplicated product'
       ),
     note: z.string().trim().max(500).optional(),
+    listId: z.string().uuid().optional(),
   })
   .strict();
 
@@ -42,6 +43,7 @@ const serializeRecord = (c: CountRecord) => ({
   countedAt: c.countedAt,
   createdBy: { id: c.createdBy.id, name: c.createdBy.name },
   note: c.note,
+  list: c.list ? { id: c.list.id, name: c.list.name } : null,
   summary: c.summary,
 });
 

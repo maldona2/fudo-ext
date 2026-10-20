@@ -10,6 +10,7 @@ import { Notice } from '@/components/Notice';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CountDetailPage } from '@/pages/CountDetailPage';
 import { CountPage } from '@/pages/CountPage';
+import { ListsPage } from '@/pages/ListsPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { PanelPage } from '@/pages/PanelPage';
 import { UsersPage } from '@/pages/UsersPage';
@@ -58,6 +59,14 @@ function App() {
               element={
                 <RequireUser role="owner">
                   <CountDetailPage />
+                </RequireUser>
+              }
+            />
+            <Route
+              path="/listas"
+              element={
+                <RequireUser role="owner">
+                  <ListsPage />
                 </RequireUser>
               }
             />

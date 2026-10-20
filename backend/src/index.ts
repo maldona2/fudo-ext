@@ -3,10 +3,12 @@ import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
 import pool from './db/connect.js';
 import { countsRepo } from './db/queries/counts.js';
+import { countListsRepo } from './db/queries/countLists.js';
 import { sessionsRepo, usersRepo } from './db/queries/users.js';
 import type { Services } from './domain/types.js';
 import { createAuthService, createUsersService } from './services/auth.js';
 import { createCountsService } from './services/counts.js';
+import { createCountListsService } from './services/countLists.js';
 import { FudoClient } from './services/fudoClient.js';
 import {
   fetchCategories,
@@ -21,16 +23,19 @@ const config = loadConfig();
 const fudo = new FudoClient(config.fudo);
 const users = usersRepo(pool);
 const usersService = createUsersService(users);
+const lists = countListsRepo(pool);
+const productsService = createProductsService({
+  products: () => fetchProducts(fudo),
+  categories: () => fetchCategories(fudo),
+});
 
 const services: Services = {
   auth: createAuthService({ users, sessions: sessionsRepo(pool) }),
   users: usersService,
-  products: createProductsService({
-    products: () => fetchProducts(fudo),
-    categories: () => fetchCategories(fudo),
-  }),
+  products: productsService,
   counts: createCountsService({
     repo: countsRepo(pool),
+    lists,
     fudo: {
       products: () => fetchProducts(fudo),
       movements: (from, to) => fetchMovements(fudo, from, to),
@@ -38,6 +43,11 @@ const services: Services = {
     notify: config.telegram
       ? createTelegramNotifier({ ...config.telegram, appUrl: config.appUrl })
       : async () => undefined,
+  }),
+  countLists: createCountListsService({
+    repo: lists,
+    countableProductIds: async () =>
+      new Set((await productsService.listForCount()).map((p) => p.id)),
   }),
   health: async () => {
     await pool.query('SELECT 1');

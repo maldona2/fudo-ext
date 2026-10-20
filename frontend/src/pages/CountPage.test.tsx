@@ -10,6 +10,12 @@ vi.mock('@/lib/api', () => ({
     listForCount: async () => [
       { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
       { id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
+      { id: '30', name: 'Coca 1.5L', code: '7', category: 'Bebidas' },
+    ],
+  },
+  countLists: {
+    list: async () => [
+      { id: 'list-1', name: 'Diario - alto riesgo', productIds: ['16', '30'] },
     ],
   },
   counts: { create: (...args: unknown[]) => create(...args) },
@@ -98,5 +104,31 @@ describe('CountPage', () => {
     );
 
     expect(await screen.findByLabelText(/Pollo/)).toHaveValue('7');
+  });
+
+  it('shows only the products of the chosen list and saves the count with it', async () => {
+    create.mockResolvedValue({ id: 'c1' });
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    await userEvent.type(await screen.findByLabelText(/Carne suave/), '10');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Diario - alto riesgo' })
+    );
+
+    expect(screen.queryByLabelText(/Carne suave/)).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Pollo/), '3');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+
+    // Carne suave was typed before switching: it is outside the list now.
+    expect(create).toHaveBeenCalledWith({
+      entries: [{ productId: '16', counted: 3 }],
+      listId: 'list-1',
+    });
   });
 });

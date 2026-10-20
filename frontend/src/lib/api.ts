@@ -1,6 +1,7 @@
 import axios, { isAxiosError } from 'axios';
 import type {
   CountDetail,
+  CountList,
   CountProduct,
   CountRecord,
   CountSummary,
@@ -69,6 +70,7 @@ export const counts = {
   create: (input: {
     entries: { productId: string; counted: number }[];
     note?: string;
+    listId?: string;
   }) =>
     api
       .post<{ id: string; summary?: CountSummary }>('/counts', input)
@@ -87,6 +89,21 @@ export const counts = {
         params: { days },
       })
       .then((r) => r.data.products),
+};
+
+export const countLists = {
+  list: () =>
+    api.get<{ lists: CountList[] }>('/count-lists').then((r) => r.data.lists),
+  create: (input: { name: string; productIds: string[] }) =>
+    api
+      .post<{ list: CountList }>('/count-lists', input)
+      .then((r) => r.data.list),
+  update: (id: string, input: { name: string; productIds: string[] }) =>
+    api
+      .put<{ list: CountList }>(`/count-lists/${encodeURIComponent(id)}`, input)
+      .then((r) => r.data.list),
+  remove: (id: string) =>
+    api.delete(`/count-lists/${encodeURIComponent(id)}`).then(() => undefined),
 };
 
 export const users = {

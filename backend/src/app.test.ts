@@ -28,6 +28,7 @@ const summary = {
 };
 
 const COUNT_ID = '33333333-3333-4333-8333-333333333333';
+const LIST_ID = '55555555-5555-4555-8555-555555555555';
 
 const makeServices = () => {
   const created: unknown[] = [];
@@ -73,11 +74,28 @@ const makeServices = () => {
               countedAt: new Date('2026-10-22T10:50:00Z'),
               createdBy: { id: counter.id, name: counter.name },
               note: null,
+              list: { id: LIST_ID, name: 'Diario' },
               summary,
               lines: [],
             }
           : null,
       shrinkage: async () => [],
+    },
+    countLists: {
+      list: async () => [{ id: LIST_ID, name: 'Diario', productIds: ['14'] }],
+      create: async (input) => {
+        if (input.name === 'Diario') {
+          throw new HttpError(409, 'Ya existe una lista con ese nombre');
+        }
+        created.push(input);
+        return { id: LIST_ID, ...input };
+      },
+      update: async (id, input) => {
+        if (id !== LIST_ID) return null;
+        created.push(input);
+        return { id, ...input };
+      },
+      remove: async (id) => id === LIST_ID,
     },
     health: async () => undefined,
   };
@@ -360,5 +378,154 @@ describe('GET /api/products', () => {
     expect(res.body.products).toEqual([
       { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
     ]);
+  });
+});
+
+describe('count lists', () => {
+  const valid = { name: 'Alto riesgo', productIds: ['14', '16'] };
+
+  it('lets a counter read the lists, to pick what to count', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .get('/api/count-lists')
+      .set(...asCounter);
+
+    expect(res.status).toBe(200);
+    expect(res.body.lists).toEqual([
+      { id: LIST_ID, name: 'Diario', productIds: ['14'] },
+    ]);
+  });
+
+  it('answers 401 without a session', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services)).get('/api/count-lists');
+
+    expect(res.status).toBe(401);
+  });
+
+  it.each([
+    ['post', '/api/count-lists'],
+    ['put', `/api/count-lists/${LIST_ID}`],
+    ['delete', `/api/count-lists/${LIST_ID}`],
+  ] as const)('%s %s answers 403 to a counter', async (method, path) => {
+    const { services, created } = makeServices();
+    const agent = request(createApp(services));
+    const res = await agent[method](path)
+      .set(...asCounter)
+      .send(valid);
+
+    expect(res.status).toBe(403);
+    expect(created).toHaveLength(0);
+  });
+
+  it.each([
+    ['an empty name', { ...valid, name: '  ' }],
+    ['an over-long name', { ...valid, name: 'x'.repeat(81) }],
+    ['no products', { ...valid, productIds: [] }],
+    ['a non numeric product id', { ...valid, productIds: ['abc'] }],
+    ['a repeated product', { ...valid, productIds: ['14', '14'] }],
+    ['unknown keys', { ...valid, owner: 'yo' }],
+  ])('rejects %s with 400', async (_name, body) => {
+    const { services, created } = makeServices();
+    const res = await request(createApp(services))
+      .post('/api/count-lists')
+      .set(...asOwner)
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(created).toHaveLength(0);
+  });
+
+  it('answers 409 when the name is taken', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .post('/api/count-lists')
+      .set(...asOwner)
+      .send({ ...valid, name: 'Diario' });
+
+    expect(res.status).toBe(409);
+  });
+
+  it('creates a list for the owner', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .post('/api/count-lists')
+      .set(...asOwner)
+      .send(valid);
+
+    expect(res.status).toBe(201);
+    expect(res.body.list).toEqual({ id: LIST_ID, ...valid });
+  });
+
+  it('answers 400 for a malformed list id', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .put('/api/count-lists/12')
+      .set(...asOwner)
+      .send(valid);
+
+    expect(res.status).toBe(400);
+  });
+
+  it('answers 404 when updating or deleting a list that does not exist', async () => {
+    const { services } = makeServices();
+    const app = createApp(services);
+    const missing = '66666666-6666-4666-8666-666666666666';
+
+    const put = await request(app)
+      .put(`/api/count-lists/${missing}`)
+      .set(...asOwner)
+      .send(valid);
+    const del = await request(app)
+      .delete(`/api/count-lists/${missing}`)
+      .set(...asOwner);
+
+    expect(put.status).toBe(404);
+    expect(del.status).toBe(404);
+  });
+
+  it('updates and deletes a list for the owner', async () => {
+    const { services } = makeServices();
+    const app = createApp(services);
+
+    const put = await request(app)
+      .put(`/api/count-lists/${LIST_ID}`)
+      .set(...asOwner)
+      .send(valid);
+    const del = await request(app)
+      .delete(`/api/count-lists/${LIST_ID}`)
+      .set(...asOwner);
+
+    expect(put.status).toBe(200);
+    expect(put.body.list.name).toBe('Alto riesgo');
+    expect(del.status).toBe(204);
+  });
+
+  it('accepts a count tied to a list and rejects a malformed list id', async () => {
+    const { services, created } = makeServices();
+    const app = createApp(services);
+    const entries = [{ productId: '14', counted: 10 }];
+
+    const ok = await request(app)
+      .post('/api/counts')
+      .set(...asCounter)
+      .send({ entries, listId: LIST_ID });
+    const bad = await request(app)
+      .post('/api/counts')
+      .set(...asCounter)
+      .send({ entries, listId: 'diario' });
+
+    expect(ok.status).toBe(201);
+    expect(created).toEqual([{ entries, listId: LIST_ID }]);
+    expect(bad.status).toBe(400);
+  });
+
+  it('shows the list a count was made with', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .get(`/api/counts/${COUNT_ID}`)
+      .set(...asOwner);
+
+    expect(res.body.count.list).toEqual({ id: LIST_ID, name: 'Diario' });
   });
 });

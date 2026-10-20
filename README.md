@@ -8,6 +8,8 @@ Herramientas de control sobre la API de FUDO. La pieza principal es una web app 
   con la hora exacta) y lo compara con lo contado. El primer conteo de un producto se
   compara contra el stock que informa FUDO.
 - El dueño entra cuando quiere y ve qué faltó, cuánto vale (a costo) y en qué productos se repite.
+- El dueño arma **listas de conteo** (por ejemplo "Diario - alto riesgo") para contar seguido lo que más se pierde;
+  la encargada elige la lista y ve solo esos productos.
 - Si un conteo da faltantes, llega un aviso corto por Telegram. Si está todo bien, no llega nada.
 
 **Solo lectura sobre FUDO:** la app nunca escribe en la cuenta (el cliente HTTP rechaza

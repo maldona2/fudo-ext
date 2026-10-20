@@ -1,5 +1,6 @@
 import type {
   CountDetail,
+  CountList,
   CountRecord,
   NewCount,
   ShrinkageRow,
@@ -25,6 +26,7 @@ export interface NewCountRow {
   createdBy: string;
   countedAt: Date;
   note: string | null;
+  list: { id: string; name: string } | null;
   summary: CountSummary;
   lines: CountLine[];
 }
@@ -50,6 +52,7 @@ export interface ShortageEvent {
 
 interface Deps {
   repo: CountsRepo;
+  lists: { get(id: string): Promise<CountList | null> };
   fudo: {
     products(): Promise<FudoProduct[]>;
     movements(from: Date, to: Date): Promise<StockMovement[]>;
@@ -69,6 +72,7 @@ async function fromFudo<T>(read: () => Promise<T>): Promise<T> {
 
 export function createCountsService({
   repo,
+  lists,
   fudo,
   notify,
   now = () => new Date(),
@@ -76,6 +80,10 @@ export function createCountsService({
   return {
     async create(user: User, input: NewCount) {
       const countedAt = now();
+      const list = input.listId ? await lists.get(input.listId) : null;
+      if (input.listId && !list) {
+        throw new HttpError(400, 'La lista de conteo no existe');
+      }
       const products = await fromFudo(() => fudo.products());
       const byId = new Map(products.map((p) => [p.id, p]));
       if (input.entries.some((e) => !byId.has(e.productId))) {
@@ -115,6 +123,7 @@ export function createCountsService({
         createdBy: user.id,
         countedAt,
         note: input.note || null,
+        list: list ? { id: list.id, name: list.name } : null,
         summary,
         lines,
       });

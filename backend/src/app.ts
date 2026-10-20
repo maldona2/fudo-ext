@@ -7,6 +7,7 @@ import { authRoutes } from './routes/auth.js';
 import { usersRoutes } from './routes/users.js';
 import { productsRoutes } from './routes/products.js';
 import { countsRoutes, reportsRoutes } from './routes/counts.js';
+import { countListsRoutes } from './routes/countLists.js';
 
 export function createApp(services: Services): Express {
   const app: Express = express();
@@ -60,6 +61,7 @@ export function createApp(services: Services): Express {
   app.use('/api/products', productsRoutes(services));
   app.use('/api/counts', countsRoutes(services));
   app.use('/api/reports', reportsRoutes(services));
+  app.use('/api/count-lists', countListsRoutes(services));
 
   // Error handler (must be last)
   app.use(errorHandler);

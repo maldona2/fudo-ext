@@ -29,7 +29,14 @@ export interface CountRecord {
   countedAt: string;
   createdBy: { id: string; name: string };
   note: string | null;
+  list: { id: string | null; name: string } | null;
   summary: CountSummary;
+}
+
+export interface CountList {
+  id: string;
+  name: string;
+  productIds: string[];
 }
 
 export interface CountLine {

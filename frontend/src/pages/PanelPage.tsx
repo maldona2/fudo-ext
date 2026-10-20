@@ -93,6 +93,7 @@ export function PanelPage() {
                     {formatDateTime(c.countedAt)}
                   </span>
                   <span className="text-sm text-muted-foreground">
+                    {c.list && <>{c.list.name} · </>}
                     {c.createdBy.name} ·{' '}
                     {plural(c.summary.products, 'producto', 'productos')}
                   </span>

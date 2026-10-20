@@ -66,6 +66,7 @@ export function CountDetailPage() {
           Conteo del {formatDateTime(count.countedAt)}
         </h1>
         <p className="text-muted-foreground">
+          {count.list && <>Lista “{count.list.name}” · </>}
           Lo hizo {count.createdBy.name} ·{' '}
           {plural(count.summary.products, 'producto', 'productos')}
           {count.note && <> · “{count.note}”</>}

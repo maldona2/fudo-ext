@@ -5,6 +5,7 @@ import type { StockMovement, PreviousCount } from './reconcile.js';
 import type { User } from '../domain/types.js';
 
 const NOW = new Date('2026-10-22T10:50:00Z');
+const DAILY_LIST = '55555555-5555-4555-8555-555555555555';
 const DAY = 24 * 60 * 60 * 1000;
 
 const vanessa: User = {
@@ -55,6 +56,10 @@ const setup = (
   };
   const service = createCountsService({
     repo,
+    lists: {
+      get: async (id) =>
+        id === DAILY_LIST ? { id, name: 'Diario', productIds: ['14'] } : null,
+    },
     fudo: {
       products: async () => products,
       movements: async (from, to) => {
@@ -176,6 +181,7 @@ describe('counts service', () => {
         get: async () => null,
         shrinkage: async () => [],
       },
+      lists: { get: async () => null },
       fudo: { products: async () => products, movements: async () => [] },
       notify: async () => {
         throw new Error('telegram down');
@@ -203,6 +209,7 @@ describe('counts service', () => {
         get: async () => null,
         shrinkage: async () => [],
       },
+      lists: { get: async () => null },
       fudo: {
         products: async () => {
           throw new Error('FUDO HTTP 503');
@@ -216,6 +223,39 @@ describe('counts service', () => {
     await expect(
       service.create(vanessa, { entries: [{ productId: '14', counted: 10 }] })
     ).rejects.toMatchObject({ statusCode: 502 });
+    expect(inserted).toHaveLength(0);
+  });
+
+  it('records the list a count was made with, by id and name', async () => {
+    const { service, inserted } = setup();
+
+    await service.create(vanessa, {
+      entries: [{ productId: '14', counted: 12 }],
+      listId: DAILY_LIST,
+    });
+
+    expect(inserted[0].list).toEqual({ id: DAILY_LIST, name: 'Diario' });
+  });
+
+  it('records a free count without a list', async () => {
+    const { service, inserted } = setup();
+
+    await service.create(vanessa, {
+      entries: [{ productId: '14', counted: 12 }],
+    });
+
+    expect(inserted[0].list).toBeNull();
+  });
+
+  it('rejects a count tied to a list that does not exist', async () => {
+    const { service, inserted } = setup();
+
+    await expect(
+      service.create(vanessa, {
+        entries: [{ productId: '14', counted: 12 }],
+        listId: '66666666-6666-4666-8666-666666666666',
+      })
+    ).rejects.toMatchObject({ statusCode: 400 });
     expect(inserted).toHaveLength(0);
   });
 });

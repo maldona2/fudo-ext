@@ -5,18 +5,33 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Notice } from '@/components/Notice';
 import { useAuth } from '@/contexts/AuthContext';
-import { counts, errorMessage, products as productsApi } from '@/lib/api';
+import {
+  countLists,
+  counts,
+  errorMessage,
+  products as productsApi,
+} from '@/lib/api';
 import { plural } from '@/lib/format';
 import {
   draftToEntries,
   parseQuantity,
   type CountDraft,
 } from '@/lib/countDraft';
-import type { CountProduct } from '@/types/api';
+import type { CountList, CountProduct } from '@/types/api';
+import { cn } from '@/lib/utils';
 
 // The draft survives a reload or a locked phone. It only holds what was
 // typed (no system figures), so browser storage is acceptable here.
 const DRAFT_KEY = 'count-draft';
+const LIST_KEY = 'count-list';
+
+const loadListId = (): string | null => {
+  try {
+    return localStorage.getItem(LIST_KEY);
+  } catch {
+    return null;
+  }
+};
 
 const loadDraft = (): CountDraft => {
   try {
@@ -33,6 +48,8 @@ export function CountPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [list, setList] = useState<CountProduct[] | null>(null);
+  const [lists, setLists] = useState<CountList[]>([]);
+  const [listId, setListId] = useState<string | null>(loadListId);
   const [draft, setDraft] = useState<CountDraft>(loadDraft);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +57,29 @@ export function CountPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    productsApi
-      .listForCount()
-      .then(setList)
+    Promise.all([productsApi.listForCount(), countLists.list()])
+      .then(([products, savedLists]) => {
+        setList(products);
+        setLists(savedLists);
+        // A list deleted since the last visit falls back to all products.
+        setListId((id) => (savedLists.some((l) => l.id === id) ? id : null));
+      })
       .catch((err) => setError(errorMessage(err)));
   }, []);
+
+  useEffect(() => {
+    try {
+      if (listId) localStorage.setItem(LIST_KEY, listId);
+      else localStorage.removeItem(LIST_KEY);
+    } catch {
+      // storage disabled: the choice just will not be remembered
+    }
+  }, [listId]);
+
+  const scope = useMemo(() => {
+    const chosen = lists.find((l) => l.id === listId);
+    return chosen ? new Set(chosen.productIds) : null;
+  }, [lists, listId]);
 
   useEffect(() => {
     try {
@@ -57,7 +92,9 @@ export function CountPage() {
   const groups = useMemo(() => {
     const q = normalize(query.trim());
     const visible = (list ?? []).filter(
-      (p) => !q || normalize(p.name).includes(q) || p.code === q
+      (p) =>
+        (!scope || scope.has(p.id)) &&
+        (!q || normalize(p.name).includes(q) || p.code === q)
     );
     const byCategory = new Map<string, CountProduct[]>();
     for (const p of visible) {
@@ -65,9 +102,16 @@ export function CountPage() {
       byCategory.set(key, [...(byCategory.get(key) ?? []), p]);
     }
     return [...byCategory];
-  }, [list, query]);
+  }, [list, query, scope]);
 
-  const { entries, invalid } = draftToEntries(draft);
+  // Only what belongs to the chosen list is sent.
+  const { entries, invalid } = draftToEntries(
+    scope
+      ? Object.fromEntries(
+          Object.entries(draft).filter(([id]) => scope.has(id))
+        )
+      : draft
+  );
 
   const save = async () => {
     if (invalid.length > 0) {
@@ -86,7 +130,9 @@ export function CountPage() {
     setBusy(true);
     setError(null);
     try {
-      const result = await counts.create({ entries });
+      const result = await counts.create(
+        scope && listId ? { entries, listId } : { entries }
+      );
       setDraft({});
       if (user?.role === 'owner') {
         navigate(`/panel/conteos/${result.id}`);
@@ -122,6 +168,31 @@ export function CountPage() {
           Contá lo que hay y anotá la cantidad. Dejá vacío lo que no contaste.
         </p>
       </div>
+
+      {lists.length > 0 && (
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Qué contar"
+        >
+          {[{ id: null, name: 'Todos los productos' }, ...lists].map((l) => (
+            <button
+              key={l.id ?? 'all'}
+              type="button"
+              aria-pressed={listId === l.id}
+              onClick={() => setListId(l.id)}
+              className={cn(
+                'rounded-full border px-4 py-2 text-base',
+                listId === l.id
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'bg-background hover:bg-muted'
+              )}
+            >
+              {l.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />

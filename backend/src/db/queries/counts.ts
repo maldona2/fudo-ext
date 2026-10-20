@@ -14,6 +14,8 @@ interface CountRow {
   note: string | null;
   created_by: string;
   created_by_name: string;
+  list_id: string | null;
+  list_name: string | null;
   products: number;
   with_difference: number;
   missing_units: string;
@@ -24,6 +26,7 @@ interface CountRow {
 
 const COUNT_COLUMNS = `
   c.id, c.counted_at, c.note, c.created_by, u.name AS created_by_name,
+  c.list_id, c.list_name,
   c.products, c.with_difference, c.missing_units, c.missing_value,
   c.surplus_units, c.surplus_value`;
 
@@ -32,6 +35,7 @@ const toRecord = (r: CountRow): CountRecord => ({
   countedAt: r.counted_at,
   note: r.note,
   createdBy: { id: r.created_by, name: r.created_by_name },
+  list: r.list_name === null ? null : { id: r.list_id, name: r.list_name },
   summary: {
     products: r.products,
     withDifference: r.with_difference,
@@ -64,20 +68,22 @@ export function countsRepo(pool: Pool): CountsRepo {
       );
     },
 
-    async insert({ createdBy, countedAt, note, summary, lines }) {
+    async insert({ createdBy, countedAt, note, list, summary, lines }) {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
         const { rows } = await client.query<{ id: string }>(
-          `INSERT INTO counts (created_by, counted_at, note, products,
-             with_difference, missing_units, missing_value, surplus_units,
-             surplus_value)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `INSERT INTO counts (created_by, counted_at, note, list_id,
+             list_name, products, with_difference, missing_units,
+             missing_value, surplus_units, surplus_value)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING id`,
           [
             createdBy,
             countedAt,
             note,
+            list?.id ?? null,
+            list?.name ?? null,
             summary.products,
             summary.withDifference,
             summary.missingUnits,
