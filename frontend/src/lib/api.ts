@@ -29,6 +29,12 @@ export function errorMessage(err: unknown): string {
   const status = isAxiosError(err) ? err.response?.status : undefined;
   switch (status) {
     case 400:
+      if (
+        isAxiosError(err) &&
+        typeof err.response?.data?.error?.message === 'string'
+      ) {
+        return err.response.data.error.message;
+      }
       return 'Revisá los datos ingresados.';
     case 401:
       return 'Tu sesión venció. Volvé a ingresar.';
@@ -76,10 +82,18 @@ export const productPacks = {
 };
 
 export const counts = {
+  check: (input: {
+    entries: { productId: string; counted: number }[];
+    listId?: string;
+  }) =>
+    api
+      .post<{ checkId: string; recount: string[] }>('/counts/check', input)
+      .then((r) => r.data),
   create: (input: {
     entries: { productId: string; counted: number }[];
     note?: string;
     listId?: string;
+    checkId?: string;
   }) =>
     api
       .post<{ id: string; summary?: CountSummary }>('/counts', input)

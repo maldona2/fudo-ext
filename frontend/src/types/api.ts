@@ -44,6 +44,7 @@ export interface CountLine {
   productId: string;
   name: string;
   counted: number;
+  firstCounted?: number | null;
   systemStock: number;
   cost: number | null;
   basis: 'previous_count' | 'system';

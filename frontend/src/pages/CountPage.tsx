@@ -27,6 +27,12 @@ import { cn } from '@/lib/utils';
 const DRAFT_KEY = 'count-draft';
 const PACKS_KEY = 'count-draft-packs';
 const LIST_KEY = 'count-list';
+const RECOUNT_KEY = 'count-recount';
+
+interface RecountState {
+  checkId: string;
+  ids: string[];
+}
 
 const loadListId = (): string | null => {
   try {
@@ -44,6 +50,28 @@ const loadDraft = (key = DRAFT_KEY): CountDraft => {
   }
 };
 
+const loadRecount = (): RecountState | null => {
+  try {
+    const value: unknown = JSON.parse(
+      localStorage.getItem(RECOUNT_KEY) ?? 'null'
+    );
+    if (
+      value &&
+      typeof value === 'object' &&
+      'checkId' in value &&
+      typeof value.checkId === 'string' &&
+      'ids' in value &&
+      Array.isArray(value.ids) &&
+      value.ids.every((id) => typeof id === 'string')
+    ) {
+      return { checkId: value.checkId, ids: value.ids };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 export function CountPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -52,8 +80,10 @@ export function CountPage() {
   const [listId, setListId] = useState<string | null>(loadListId);
   const [draft, setDraft] = useState<CountDraft>(() => loadDraft());
   const [packs, setPacks] = useState<PackDraft>(() => loadDraft(PACKS_KEY));
+  const [recount, setRecount] = useState<RecountState | null>(loadRecount);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [canStartAgain, setCanStartAgain] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -124,7 +154,9 @@ export function CountPage() {
         })
       : (list ?? []);
     const visible = ordered.filter(
-      (p) => !q || normalize(p.name).includes(q) || p.code === q
+      (p) =>
+        (!recount || recount.ids.includes(p.id)) &&
+        (!q || normalize(p.name).includes(q) || p.code === q)
     );
     if (chosen) {
       return visible.length > 0 ? [[chosen.name, visible] as const] : [];
@@ -135,7 +167,7 @@ export function CountPage() {
       byCategory.set(key, [...(byCategory.get(key) ?? []), p]);
     }
     return [...byCategory];
-  }, [list, query, chosen]);
+  }, [list, query, chosen, recount]);
 
   // Only what belongs to the chosen list is sent.
   const { entries, invalid } = draftToEntries(
@@ -159,6 +191,12 @@ export function CountPage() {
   const countedInList = entries.filter((entry) =>
     availableProductIds.has(entry.productId)
   ).length;
+  const recountCounted = recount
+    ? entries.filter((entry) => recount.ids.includes(entry.productId)).length
+    : countedInList;
+  const recountComplete =
+    !recount ||
+    recount.ids.every((id) => entries.some((entry) => entry.productId === id));
 
   const markNone = (id: string) => {
     setDraft((current) => ({ ...current, [id]: '0' }));
@@ -177,6 +215,7 @@ export function CountPage() {
       return;
     }
     if (
+      !recount &&
       !window.confirm(
         `¿Guardar el conteo de ${entries.length} producto(s)? Después no se puede modificar.`
       )
@@ -185,12 +224,52 @@ export function CountPage() {
     }
     setBusy(true);
     setError(null);
+    setCanStartAgain(false);
     try {
-      const result = await counts.create(
-        scope && listId ? { entries, listId } : { entries }
-      );
+      let checkId = recount?.checkId;
+      if (!recount) {
+        const checked = await counts.check(
+          scope && listId ? { entries, listId } : { entries }
+        );
+        if (checked.recount.length > 0) {
+          const nextRecount = {
+            checkId: checked.checkId,
+            ids: checked.recount,
+          };
+          setRecount(nextRecount);
+          try {
+            localStorage.setItem(RECOUNT_KEY, JSON.stringify(nextRecount));
+          } catch {
+            // The count can continue if storage is unavailable.
+          }
+          setDraft((current) => {
+            const next = { ...current };
+            for (const id of checked.recount) delete next[id];
+            return next;
+          });
+          setPacks((current) => {
+            const next = { ...current };
+            for (const id of checked.recount) delete next[id];
+            return next;
+          });
+          setQuery('');
+          return;
+        }
+        checkId = checked.checkId;
+      }
+      const result = await counts.create({
+        ...(scope && listId ? { listId } : {}),
+        entries,
+        checkId,
+      });
       setDraft({});
       setPacks({});
+      setRecount(null);
+      try {
+        localStorage.removeItem(RECOUNT_KEY);
+      } catch {
+        // storage disabled: the finished recount state will not be removed
+      }
       if (user?.role === 'owner') {
         navigate(`/panel/conteos/${result.id}`);
       } else {
@@ -198,8 +277,20 @@ export function CountPage() {
       }
     } catch (err) {
       setError(errorMessage(err));
+      setCanStartAgain(Boolean(recount));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const startAgain = () => {
+    setRecount(null);
+    setError(null);
+    setCanStartAgain(false);
+    try {
+      localStorage.removeItem(RECOUNT_KEY);
+    } catch {
+      // storage disabled: the recount state will not be removed
     }
   };
 
@@ -226,7 +317,7 @@ export function CountPage() {
         </p>
       </div>
 
-      {lists.length > 0 && (
+      {lists.length > 0 && !recount && (
         <div
           className="flex flex-wrap gap-2"
           role="group"
@@ -264,6 +355,18 @@ export function CountPage() {
       </div>
 
       {error && <Notice tone="error">{error}</Notice>}
+      {recount && !error && (
+        <Notice>
+          Volvé a contar {recount.ids.length}{' '}
+          {recount.ids.length === 1 ? 'producto' : 'productos'}. Contalos de
+          nuevo con calma.
+        </Notice>
+      )}
+      {canStartAgain && recount && (
+        <Button type="button" variant="outline" onClick={startAgain}>
+          Empezar de nuevo
+        </Button>
+      )}
       {!list && !error && <Notice>Cargando productos…</Notice>}
       {list && groups.length === 0 && (
         <Notice>No hay productos con ese nombre.</Notice>
@@ -447,17 +550,21 @@ export function CountPage() {
       <div className="fixed inset-x-0 bottom-0 border-t bg-background">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <span className="flex-1 text-base">
-            {chosen
-              ? `Llevás ${countedInList} de ${listTotal}`
-              : plural(
-                  entries.length,
-                  'producto contado',
-                  'productos contados'
-                )}
+            {recount
+              ? `Llevás ${recountCounted} de ${recount.ids.length}`
+              : chosen
+                ? `Llevás ${countedInList} de ${listTotal}`
+                : plural(
+                    entries.length,
+                    'producto contado',
+                    'productos contados'
+                  )}
           </span>
           <Button
             className="h-12 px-6 text-lg"
-            disabled={busy || entries.length + invalid.length === 0}
+            disabled={
+              busy || entries.length + invalid.length === 0 || !recountComplete
+            }
             onClick={() => void save()}
           >
             {busy ? 'Guardando…' : 'Guardar conteo'}

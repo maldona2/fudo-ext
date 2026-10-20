@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { DifferenceBadge } from '@/components/DifferenceBadge';
 import { Notice } from '@/components/Notice';
+import { useAuth } from '@/contexts/AuthContext';
 import { counts as countsApi, errorMessage } from '@/lib/api';
 import {
   formatDate,
@@ -36,6 +37,7 @@ function Explanation({ line }: { line: CountLine }) {
 }
 
 export function CountDetailPage() {
+  const { user } = useAuth();
   const { id = '' } = useParams();
   const [count, setCount] = useState<CountDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +118,11 @@ export function CountDetailPage() {
               </div>
               <p className="mt-1 text-base text-muted-foreground">
                 <Explanation line={l} />
+                {user?.role === 'owner' && l.firstCounted != null && (
+                  <span className="ml-2">
+                    (1er conteo: {formatUnits(l.firstCounted)})
+                  </span>
+                )}
               </p>
             </li>
           ))}
@@ -131,6 +138,11 @@ export function CountDetailPage() {
             {ok.map((l) => (
               <li key={l.productId}>
                 {l.name}: {formatUnits(l.counted)}
+                {user?.role === 'owner' && l.firstCounted != null && (
+                  <span className="ml-2">
+                    (1er conteo: {formatUnits(l.firstCounted)})
+                  </span>
+                )}
               </li>
             ))}
           </ul>
