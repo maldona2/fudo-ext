@@ -58,7 +58,13 @@ const makeServices = () => {
     },
     products: {
       listForCount: async () => [
-        { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
+        {
+          id: '14',
+          name: 'Carne suave',
+          code: '51',
+          category: 'Empanadas',
+          pack: { units: 24, label: 'cajón' },
+        },
       ],
     },
     counts: {
@@ -96,6 +102,12 @@ const makeServices = () => {
         return { id, ...input };
       },
       remove: async (id) => id === LIST_ID,
+    },
+    productPacks: {
+      upsert: async (packs) => {
+        created.push(packs);
+      },
+      remove: async (id) => id === '14',
     },
     health: async () => undefined,
   };
@@ -376,8 +388,116 @@ describe('GET /api/products', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.products).toEqual([
-      { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
+      {
+        id: '14',
+        name: 'Carne suave',
+        code: '51',
+        category: 'Empanadas',
+        pack: { units: 24, label: 'cajón' },
+      },
     ]);
+  });
+});
+
+describe('PUT /api/product-packs', () => {
+  const pack = { productId: '14', units: 24, label: 'cajón' };
+  const valid = { packs: [pack] };
+
+  it('answers 401 without a session and 403 to a counter', async () => {
+    const { services, created } = makeServices();
+    const app = createApp(services);
+    expect(
+      (await request(app).put('/api/product-packs').send(valid)).status
+    ).toBe(401);
+    expect(
+      (
+        await request(app)
+          .put('/api/product-packs')
+          .set(...asCounter)
+          .send(valid)
+      ).status
+    ).toBe(403);
+    expect(created).toHaveLength(0);
+  });
+
+  it.each([
+    ['units below range', { packs: [{ ...pack, units: 1 }] }],
+    ['units above range', { packs: [{ ...pack, units: 1001 }] }],
+    ['fractional units', { packs: [{ ...pack, units: 2.5 }] }],
+    ['empty label', { packs: [{ ...pack, label: '' }] }],
+    ['long label', { packs: [{ ...pack, label: 'x'.repeat(21) }] }],
+    ['invalid id', { packs: [{ ...pack, productId: 'abc' }] }],
+    ['empty packs', { packs: [] }],
+    [
+      'too many packs',
+      {
+        packs: Array.from({ length: 2001 }, (_, i) => ({
+          ...pack,
+          productId: String(i),
+        })),
+      },
+    ],
+    ['duplicated product', { packs: [pack, pack] }],
+    ['extra field', { packs: [{ ...pack, stock: 5 }] }],
+  ])('answers 400 for %s', async (_name, body) => {
+    const { services, created } = makeServices();
+    const res = await request(createApp(services))
+      .put('/api/product-packs')
+      .set(...asOwner)
+      .send(body);
+    expect(res.status).toBe(400);
+    expect(created).toHaveLength(0);
+  });
+
+  it('saves valid packs for the owner', async () => {
+    const { services, created } = makeServices();
+    const res = await request(createApp(services))
+      .put('/api/product-packs')
+      .set(...asOwner)
+      .send(valid);
+    expect(res.status).toBe(204);
+    expect(created).toEqual([[pack]]);
+  });
+});
+
+describe('DELETE /api/product-packs/:productId', () => {
+  it('answers 401 without a session and 403 to a counter', async () => {
+    const { services } = makeServices();
+    const app = createApp(services);
+    expect((await request(app).delete('/api/product-packs/14')).status).toBe(
+      401
+    );
+    expect(
+      (
+        await request(app)
+          .delete('/api/product-packs/14')
+          .set(...asCounter)
+      ).status
+    ).toBe(403);
+  });
+
+  it('answers 400 for a malformed product id', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .delete('/api/product-packs/abc')
+      .set(...asOwner);
+    expect(res.status).toBe(400);
+  });
+
+  it('answers 404 when the pack does not exist', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .delete('/api/product-packs/999')
+      .set(...asOwner);
+    expect(res.status).toBe(404);
+  });
+
+  it('removes an existing pack', async () => {
+    const { services } = makeServices();
+    const res = await request(createApp(services))
+      .delete('/api/product-packs/14')
+      .set(...asOwner);
+    expect(res.status).toBe(204);
   });
 });
 

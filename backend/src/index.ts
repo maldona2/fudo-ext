@@ -4,6 +4,7 @@ import { loadConfig } from './config/env.js';
 import pool from './db/connect.js';
 import { countsRepo } from './db/queries/counts.js';
 import { countListsRepo } from './db/queries/countLists.js';
+import { productPacksRepo } from './db/queries/productPacks.js';
 import { sessionsRepo, usersRepo } from './db/queries/users.js';
 import type { Services } from './domain/types.js';
 import { createAuthService, createUsersService } from './services/auth.js';
@@ -17,6 +18,7 @@ import {
 } from './services/fudoData.js';
 import { createTelegramNotifier } from './services/notifier.js';
 import { createProductsService } from './services/products.js';
+import { createProductPacksService } from './services/productPacks.js';
 import logger from './utils/logger.js';
 
 const config = loadConfig();
@@ -24,9 +26,11 @@ const fudo = new FudoClient(config.fudo);
 const users = usersRepo(pool);
 const usersService = createUsersService(users);
 const lists = countListsRepo(pool);
+const packs = productPacksRepo(pool);
 const productsService = createProductsService({
   products: () => fetchProducts(fudo),
   categories: () => fetchCategories(fudo),
+  packs: () => packs.all(),
 });
 
 const services: Services = {
@@ -46,6 +50,11 @@ const services: Services = {
   }),
   countLists: createCountListsService({
     repo: lists,
+    countableProductIds: async () =>
+      new Set((await productsService.listForCount()).map((p) => p.id)),
+  }),
+  productPacks: createProductPacksService({
+    repo: packs,
     countableProductIds: async () =>
       new Set((await productsService.listForCount()).map((p) => p.id)),
   }),

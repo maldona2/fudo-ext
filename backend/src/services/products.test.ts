@@ -29,6 +29,7 @@ describe('products service', () => {
           ['6', 'Empanadas'],
           ['7', 'Bebidas'],
         ]),
+      packs: async () => new Map(),
     });
 
     const list = await service.listForCount();
@@ -50,6 +51,7 @@ describe('products service', () => {
         return [product('1', 'Carne suave', null)];
       },
       categories: async () => new Map(),
+      packs: async () => new Map(),
       now: () => now,
     });
 
@@ -60,5 +62,31 @@ describe('products service', () => {
     await service.listForCount();
 
     expect(calls).toBe(2);
+  });
+
+  it('adds the pack to each product and reads packs fresh even when the product list is cached', async () => {
+    let packs = new Map<string, { units: number; label: string }>();
+    const service = createProductsService({
+      products: async () => [
+        product('13', 'Agua', null),
+        product('14', 'Gaseosa', null),
+      ],
+      categories: async () => new Map(),
+      packs: async () => packs,
+      now: () => 0,
+    });
+
+    expect(await service.listForCount()).toEqual([
+      expect.objectContaining({ id: '13', pack: null }),
+      expect.objectContaining({ id: '14', pack: null }),
+    ]);
+    packs = new Map([['14', { units: 24, label: 'cajón' }]]);
+    expect(await service.listForCount()).toEqual([
+      expect.objectContaining({ id: '13', pack: null }),
+      expect.objectContaining({
+        id: '14',
+        pack: { units: 24, label: 'cajón' },
+      }),
+    ]);
   });
 });

@@ -18,6 +18,7 @@ export function productsRoutes(services: Services): Router {
           name: p.name,
           code: p.code,
           category: p.category,
+          pack: p.pack,
         })),
       });
     })

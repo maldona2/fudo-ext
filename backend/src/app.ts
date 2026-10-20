@@ -8,6 +8,7 @@ import { usersRoutes } from './routes/users.js';
 import { productsRoutes } from './routes/products.js';
 import { countsRoutes, reportsRoutes } from './routes/counts.js';
 import { countListsRoutes } from './routes/countLists.js';
+import { productPacksRoutes } from './routes/productPacks.js';
 
 export function createApp(services: Services): Express {
   const app: Express = express();
@@ -62,6 +63,7 @@ export function createApp(services: Services): Express {
   app.use('/api/counts', countsRoutes(services));
   app.use('/api/reports', reportsRoutes(services));
   app.use('/api/count-lists', countListsRoutes(services));
+  app.use('/api/product-packs', productPacksRoutes(services));
 
   // Error handler (must be last)
   app.use(errorHandler);

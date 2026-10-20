@@ -15,6 +15,13 @@ export interface CountProduct {
   name: string;
   code: string | null;
   category: string | null;
+  pack: { units: number; label: string } | null;
+}
+
+export interface ProductPack {
+  productId: string;
+  units: number;
+  label: string;
 }
 
 export interface CountRecord {
@@ -97,6 +104,10 @@ export interface Services {
     create(input: CountListInput): Promise<CountList>;
     update(id: string, input: CountListInput): Promise<CountList | null>;
     remove(id: string): Promise<boolean>;
+  };
+  productPacks: {
+    upsert(packs: ProductPack[]): Promise<void>;
+    remove(productId: string): Promise<boolean>;
   };
   health(): Promise<void>;
 }
