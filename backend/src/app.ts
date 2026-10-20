@@ -11,9 +11,9 @@ import { countsRoutes, reportsRoutes } from './routes/counts.js';
 export function createApp(services: Services): Express {
   const app: Express = express();
 
-  // Railway (and nginx in front) terminate TLS: trust one proxy hop so
-  // req.ip and secure cookies work.
-  app.set('trust proxy', 1);
+  // Requests arrive through Railway's edge and then nginx (frontend
+  // service): trust those two hops so req.ip is the real client.
+  app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 2));
 
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:3000',
