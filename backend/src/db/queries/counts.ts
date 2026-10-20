@@ -62,12 +62,13 @@ export function countsRepo(pool: Pool): CountsRepo {
       const { rows } = await pool.query<{
         id: string;
         user_id: string;
+        list_id: string | null;
         created_at: Date;
         used_at: Date | null;
         entries: { productId: string; counted: number }[];
         recount_ids: string[];
       }>(
-        `SELECT id, user_id, created_at, used_at, entries, recount_ids
+        `SELECT id, user_id, list_id, created_at, used_at, entries, recount_ids
            FROM count_checks WHERE id = $1`,
         [id]
       );
@@ -76,6 +77,7 @@ export function countsRepo(pool: Pool): CountsRepo {
         ? {
             id: row.id,
             userId: row.user_id,
+            listId: row.list_id,
             createdAt: row.created_at,
             usedAt: row.used_at,
             entries: row.entries,

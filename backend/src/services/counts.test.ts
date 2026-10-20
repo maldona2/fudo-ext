@@ -469,6 +469,42 @@ describe('blind recounts', () => {
     ).resolves.toHaveProperty('id');
   });
 
+  it('rejects a final count that changes an unflagged product quantity', async () => {
+    const { service, checks, inserted } = setup();
+    const { checkId } = await service.check(vanessa, { entries });
+    await expect(
+      service.create(vanessa, {
+        checkId,
+        entries: [entries[0], { ...entries[1], counted: 31 }],
+      })
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(inserted).toHaveLength(0);
+    expect(checks.get(checkId)!.usedAt).toBeNull();
+  });
+
+  it('requires the final count to have the exact original product set', async () => {
+    const { service, checks, inserted } = setup();
+    const { checkId } = await service.check(vanessa, { entries });
+    await expect(
+      service.create(vanessa, { checkId, entries: [entries[0]] })
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(inserted).toHaveLength(0);
+    expect(checks.get(checkId)!.usedAt).toBeNull();
+  });
+
+  it('requires the final count to use the original list scope', async () => {
+    const { service, checks, inserted } = setup();
+    const { checkId } = await service.check(vanessa, {
+      entries,
+      listId: DAILY_LIST,
+    });
+    await expect(
+      service.create(vanessa, { checkId, entries })
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(inserted).toHaveLength(0);
+    expect(checks.get(checkId)!.usedAt).toBeNull();
+  });
+
   it('saves without check when no checkId is sent', async () => {
     const { service, inserted } = setup();
     await service.create(vanessa, { entries });

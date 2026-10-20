@@ -27,6 +27,7 @@ export interface CountCheck {
   userId: string;
   createdAt: Date;
   usedAt: Date | null;
+  listId: string | null;
   entries: { productId: string; counted: number }[];
   recountIds: string[];
 }
@@ -170,6 +171,27 @@ export function createCountsService({
         );
         if (check.recountIds.some((id) => !submitted.has(id))) {
           throw new HttpError(400, 'Falta recontar productos.');
+        }
+        const original = new Map(
+          check.entries.map((entry) => [entry.productId, entry.counted])
+        );
+        if (
+          input.entries.length !== original.size ||
+          submitted.size !== original.size ||
+          [...original.keys()].some((id) => !submitted.has(id)) ||
+          (input.listId ?? null) !== check.listId
+        ) {
+          throw new HttpError(400, 'El conteo cambió. Volvé a empezar.');
+        }
+        const recountIds = new Set(check.recountIds);
+        if (
+          input.entries.some(
+            (entry) =>
+              !recountIds.has(entry.productId) &&
+              entry.counted !== original.get(entry.productId)
+          )
+        ) {
+          throw new HttpError(400, 'El conteo cambió. Volvé a empezar.');
         }
       }
       const { list, lines } = await computeLines(input, countedAt);
