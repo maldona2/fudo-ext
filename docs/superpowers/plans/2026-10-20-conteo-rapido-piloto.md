@@ -60,13 +60,13 @@
   - `PUT /api/product-packs` (owner) body `{ packs: [{ productId, units, label }] }` → `204`.
   - `DELETE /api/product-packs/:productId` (owner) → `204` | `404`.
 
-- [ ] **Step 1: Migración**
+- [x] **Step 1: Migración**
 
 `003_product_packs.sql`: tabla `product_packs (product_id TEXT PRIMARY KEY CHECK (product_id ~ '^[0-9]{1,10}$'), units INTEGER NOT NULL CHECK (units BETWEEN 2 AND 1000), label TEXT NOT NULL CHECK (length(label) BETWEEN 1 AND 20), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`. Comentario arriba: "Units per closed pack (cajón, fardo, cartón). Lives here, not in FUDO."
 
 Run: `cd backend && npm run db:migrate` → Expected: aplica `003_product_packs.sql` sin error.
 
-- [ ] **Step 2: Tests del servicio (fallan)**
+- [x] **Step 2: Tests del servicio (fallan)**
 
 `productPacks.test.ts`, mismo estilo que `countLists.test.ts` (repo falso en memoria, `countable = ['13','14','16']`):
 ```ts
@@ -82,13 +82,13 @@ it('saves valid packs', async () => {
 ```
 Run: `cd backend && npx jest src/services/productPacks.test.ts` → FAIL (módulo no existe).
 
-- [ ] **Step 3: Implementar repo + servicio**
+- [x] **Step 3: Implementar repo + servicio**
 
 Repo: `upsert` en una transacción con `INSERT ... SELECT unnest($1::text[]), unnest($2::int[]), unnest($3::text[]) ON CONFLICT (product_id) DO UPDATE SET units = EXCLUDED.units, label = EXCLUDED.label, updated_at = now()`. Reusar el patrón `inTransaction` de `queries/countLists.ts` (copiar no; si hace falta en los dos, moverlo a `db/queries/tx.ts` y que ambos lo importen). Servicio: valida contra `countableProductIds()` con `HttpError(400, 'Hay productos que no se pueden contar')`, igual que `countLists.ts`.
 
 Run: `npx jest src/services/productPacks.test.ts` → PASS.
 
-- [ ] **Step 4: `pack` en la lista de conteo**
+- [x] **Step 4: `pack` en la lista de conteo**
 
 Test en `products.test.ts`: `it('adds the pack to each product and reads packs fresh even when the product list is cached')` — dos llamadas a `listForCount()` dentro de `CACHE_MS`, el falso `packs()` devuelve `{14: {units: 24, label: 'cajón'}}` en la segunda; esperar `pack` actualizado y `pack: null` para el resto.
 
@@ -96,7 +96,7 @@ Implementar: nueva dep `packs(): Promise<Map<string, { units: number; label: str
 
 Run: `npx jest src/services/products.test.ts` → PASS.
 
-- [ ] **Step 5: Rutas + tests de app**
+- [x] **Step 5: Rutas + tests de app**
 
 En `app.test.ts`, bloque `describe('PUT /api/product-packs')` con los casos de la skill de testing:
 - `401` sin cookie; `403` con counter.
@@ -108,7 +108,7 @@ Schema zod: `{ packs: z.array(z.object({ productId: /^\d{1,10}$/, units: z.numbe
 
 Run: `cd backend && npm run test` → PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src
@@ -142,7 +142,7 @@ git commit -m "feat(backend): units per pack for each product"
       errors: { line: number; text: string }[] };
   ```
 
-- [ ] **Step 1: Tests de `parsePackCsv` (fallan)**
+- [x] **Step 1: Tests de `parsePackCsv` (fallan)**
 
 Formato: una fila por línea, `producto;unidades;etiqueta` (también `,` o tab como separador). `producto` = código FUDO exacto o nombre (sin tildes ni mayúsculas, igual que `normalize` de `CountPage.tsx`). Etiqueta opcional, default `'bulto'`.
 ```ts
@@ -155,26 +155,26 @@ it('reports unknown products, units outside 2..1000 and ambiguous names with the
 ```
 Run: `cd frontend && npx vitest run src/lib/packCsv.test.ts` → FAIL.
 
-- [ ] **Step 2: Implementar `parsePackCsv`**
+- [x] **Step 2: Implementar `parsePackCsv`**
 
 Mover `normalize` de `CountPage.tsx` a `lib/format.ts` (exportada) y usarla en los dos lados.
 
 Run: mismo comando → PASS.
 
-- [ ] **Step 3: Tests de `PacksPage` (fallan)**
+- [x] **Step 3: Tests de `PacksPage` (fallan)**
 
 Mock de `@/lib/api` como `CountPage.test.tsx`.
 - `it('saves the units typed for a product')`: escribir `24` en el campo "Unidades por bulto" de "Coca 354", etiqueta `cajón`, Guardar → `productPacks.save` con `[{productId:'30', units:24, label:'cajón'}]`.
 - `it('imports a pasted sheet and lists the rows it could not read')`: pegar dos filas válidas y una inválida → muestra "Línea 3: …" y botón "Importar 2 bultos" → `save` con las dos.
 - `it('removes a pack')` → `productPacks.remove('30')`.
 
-- [ ] **Step 4: Implementar `PacksPage`**
+- [x] **Step 4: Implementar `PacksPage`**
 
 Lista de productos agrupada por categoría (mismo agrupado que `ListsPage.tsx`), buscador, y por fila: unidades (`inputMode="numeric"`), etiqueta, guardar/quitar. Arriba, `Card` "Pegar planilla" con `<textarea>` + vista previa de `parsePackCsv` + botón "Importar N bultos". Errores con `Notice tone="error"`.
 
 Run: `cd frontend && npm run test` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src
@@ -203,7 +203,7 @@ git commit -m "feat(frontend): owner screen to set units per pack"
   ): { entries: { productId: string; counted: number }[]; invalid: string[] };
   ```
 
-- [ ] **Step 1: Tests (fallan)**
+- [x] **Step 1: Tests (fallan)**
 
 ```ts
 it('adds closed packs times units per pack to the loose units', () => {
@@ -217,26 +217,26 @@ it('ignores pack counts when the product has no pack anymore', ...)
 ```
 Run: `cd frontend && npx vitest run src/lib/countDraft.test.ts` → FAIL.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 Un producto está "contado" si bultos o sueltas no están vacíos. Total redondeado a 3 decimales.
 
 Run → PASS.
 
-- [ ] **Step 3: Tests de pantalla (fallan)**
+- [x] **Step 3: Tests de pantalla (fallan)**
 
 En `CountPage.test.tsx`, dar a "Coca 1.5L" `pack: { units: 6, label: 'fardo' }`:
 - `it('shows packs and loose fields for products with a pack and sends the total')`: escribir `3` en "Fardos de Coca 1.5L" y `2` en "Sueltas de Coca 1.5L" → ve "= 20 u." → guardar → `create` con `{ productId: '30', counted: 20 }`.
 - `it('adds one pack with the +1 button')`: click "+1 fardo" dos veces → campo bultos `2`.
 - `it('keeps packs typed after a reload')`: el borrador de bultos se guarda en `localStorage` key `count-draft-packs`.
 
-- [ ] **Step 4: Implementar en `CountPage.tsx`**
+- [x] **Step 4: Implementar en `CountPage.tsx`**
 
 Para productos con `pack`: dos `Input` (bultos con `aria-label="Fardos de {name}"` usando la etiqueta en plural simple — agregar `s` —, sueltas con `aria-label="Sueltas de {name}"`), botón `+1 {label}`, y el total `= N u.` (es lo que el cajero contó, no cifra del sistema: no rompe el conteo a ciegas). Sin `pack`, el input único de hoy. `PackDraft` persistido igual que `DRAFT_KEY`, limpiado al guardar.
 
 Run: `cd frontend && npm run test` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src
@@ -257,13 +257,13 @@ git commit -m "feat(frontend): count closed packs plus loose units"
 **Interfaces:**
 - Contract change (sin cambiar tipos): `CountList.productIds` pasa a estar **en orden de recorrido** (el orden en que se guardó), no ordenado por id.
 
-- [ ] **Step 1: Migración**
+- [x] **Step 1: Migración**
 
 `004_count_list_order.sql`: `ALTER TABLE count_list_products ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0;` Comentario: "Walking order inside the shop (gondola by gondola)."
 
 Run: `cd backend && npm run db:migrate` → aplica sin error.
 
-- [ ] **Step 2: Repo guarda y lee el orden**
+- [x] **Step 2: Repo guarda y lee el orden**
 
 `replaceProducts`: `INSERT ... SELECT $1, id, ord FROM unnest($2::text[]) WITH ORDINALITY AS t(id, ord)`. `SELECT_LISTS`: `array_agg(p.product_id ORDER BY p.position, p.product_id)`.
 
@@ -271,13 +271,13 @@ Test en `countLists.test.ts`: `it('keeps the saved order when a product drops ou
 
 Run: `cd backend && npm run test` → PASS. Verificación manual contra la base: crear una lista con `['16','13']` por la API y leerla → `['16','13']`.
 
-- [ ] **Step 3: Editor de listas con orden (tests primero)**
+- [x] **Step 3: Editor de listas con orden (tests primero)**
 
 `ListsPage.test.tsx`: `it('saves products in the walking order set with the arrows')` — seleccionar A, B, C; click "Bajar A" → guardar envía `[B, A, C]`.
 
 Implementar: en `ListEditor`, sección "Orden de recorrido" con los seleccionados en orden y botones "Subir"/"Bajar" (`aria-label="Subir {name}"`). Estado `order: string[]` reemplaza a `selected: Set` (seleccionar agrega al final, des-seleccionar saca). `submit` envía `order`. Ya no se reordena por categoría al guardar.
 
-- [ ] **Step 4: Conteo en orden de recorrido (tests primero)**
+- [x] **Step 4: Conteo en orden de recorrido (tests primero)**
 
 `CountPage.test.tsx`: `it('lists the products of a list in walking order without category groups')` — lista `['30','16']` → los labels aparecen en ese orden.
 
@@ -285,7 +285,7 @@ Implementar: con lista elegida, un solo grupo con título = nombre de la lista, 
 
 Run: `cd frontend && npm run test` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src frontend/src
@@ -299,19 +299,19 @@ git commit -m "feat: count lists keep the walking order of the shop"
 **Files:**
 - Modify: `frontend/src/pages/CountPage.tsx`, `frontend/src/pages/CountPage.test.tsx`
 
-- [ ] **Step 1: Tests (fallan)**
+- [x] **Step 1: Tests (fallan)**
 
 - `it('shows how many products of the list are counted')`: lista de 2, contar 1 → texto `Llevás 1 de 2`.
 - `it('marks a product as zero with "No hay ninguno"')`: click `No hay ninguno: Pollo` → input `0`, se envía `counted: 0`.
 - `it('sets loose to 0 and clears packs for a product with a pack')` (Review Focus 5): bultos `3` → "No hay ninguno" → bultos vacío, sueltas `0`, total `0`.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 En la barra fija inferior, `Llevás {contados} de {total en el alcance}` reemplaza el `plural(...)` actual cuando hay lista; sin lista queda el texto de hoy. Fila contada con tilde (`Check` de lucide). Botón chico "No hay ninguno" con `aria-label="No hay ninguno: {name}"`.
 
 Run: `cd frontend && npm run test` → PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src
@@ -350,13 +350,13 @@ git commit -m "feat(frontend): count progress and explicit zero"
   ```
 - HTTP: `POST /api/counts/check` (cualquier usuario logueado) body igual a `POST /api/counts` sin `checkId` → `200 { checkId, recount: string[] }`. `POST /api/counts` acepta `checkId?: uuid`. `GET /api/counts/:id` agrega `firstCounted` por línea.
 
-- [ ] **Step 1: Migración y config**
+- [x] **Step 1: Migración y config**
 
 `005_count_checks.sql`: `count_checks (id UUID PK DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id), list_id UUID REFERENCES count_lists(id) ON DELETE SET NULL, entries JSONB NOT NULL, recount_ids TEXT[] NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), used_at TIMESTAMPTZ)` y `ALTER TABLE count_lines ADD COLUMN IF NOT EXISTS first_counted NUMERIC(14, 3);` Comentario: los checks quedan guardados para que el dueño pueda ver si alguien sondeó.
 
 `env.ts`: `recountMinDifference: Number(optional('RECOUNT_MIN_DIFFERENCE') ?? 1)`; si no es número > 0, `throw new Error('RECOUNT_MIN_DIFFERENCE must be a positive number')` (fail closed, como el resto).
 
-- [ ] **Step 2: Tests del servicio (fallan)**
+- [x] **Step 2: Tests del servicio (fallan)**
 
 En `counts.test.ts` (fake repo/fudo ya existentes):
 - `it('asks to recount only products whose difference reaches the threshold, in either direction')`: esperado 10; contados 10, 8, 12, 10.5 con umbral 1 → `recount` = los de 8 y 12, no el de 10.5.
@@ -367,13 +367,13 @@ En `counts.test.ts` (fake repo/fudo ya existentes):
 
 Run: `cd backend && npx jest src/services/counts.test.ts` → FAIL.
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Extraer de `create` una función interna `computeLines(input, countedAt)` → `{ list, lines }` (todo lo que hoy va de leer la lista hasta `reconcileCount`), y usarla en `create` y en `check`. `check`: `recount = lines.filter(l => Math.abs(l.difference) >= recountMinDifference).map(l => l.productId)`; guarda con `insertCheck`. `create` con `checkId`: valida (mismo usuario, `usedAt === null`, `createdAt` ≤ 2 h), pone `firstCounted` desde `check.entries` para ids en `recountIds`, pasa `checkId` a `repo.insert`, que hace `UPDATE count_checks SET used_at = now()` dentro de su transacción. Nueva dep `recountMinDifference: number` en `createCountsService`.
 
 Run → PASS.
 
-- [ ] **Step 4: Rutas (tests primero)**
+- [x] **Step 4: Rutas (tests primero)**
 
 `app.test.ts`, `POST /api/counts/check`: `401`; `400` con los mismos inputs inválidos que `POST /api/counts`; counter recibe `{ checkId, recount }` y nada más; **`429` al cuarto check del mismo usuario en 30 min** (Review Focus 2). `POST /api/counts` con `checkId: 'x'` → `400`.
 
@@ -381,7 +381,7 @@ Implementar: `createRateLimiter({ windowMs: 30 * 60 * 1000, max: 3 })` keyed por
 
 Run: `cd backend && npm run test` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src backend/env.example
@@ -401,7 +401,7 @@ git commit -m "feat(backend): blind recount of products that do not match"
 - Consumes: HTTP de Task 6.
 - Produces: `counts.check(input: { entries; listId? }) => Promise<{ checkId: string; recount: string[] }>`.
 
-- [ ] **Step 1: Tests (fallan)**
+- [x] **Step 1: Tests (fallan)**
 
 - `it('asks to recount the flagged products without saying if there is more or less')`: `check` devuelve `recount: ['16']` → aparece "Volvé a contar 1 producto", solo se ve "Pollo", su campo vacío, y el texto de la pantalla no contiene "falta", "sobra" ni números del sistema.
 - `it('saves with the check id after the recount')`: escribir de nuevo y guardar → `create` con `checkId` y el valor nuevo.
@@ -409,7 +409,7 @@ git commit -m "feat(backend): blind recount of products that do not match"
 - `it('resumes the recount after a reload')` (Review Focus 3): estado en `localStorage` key `count-recount` (`{ checkId, ids }`), se limpia al guardar.
 - `it('shows the server message for an expired recount and lets the counter start again')`: `create` rechaza 400 → `Notice` de error y botón "Empezar de nuevo" que borra `count-recount`.
 
-- [ ] **Step 2: Implementar**
+- [x] **Step 2: Implementar**
 
 `save()`: `check` → si `recount` vacío, `create({ ..., checkId })`; si no, guarda `{ checkId, ids }`, vacía en el borrador (bultos y sueltas) solo esos ids y filtra la vista a ellos con un `Notice` "Volvé a contar N producto(s). Contalos de nuevo con calma." El confirm de "¿Guardar el conteo…?" queda antes del `check`.
 
@@ -417,7 +417,7 @@ git commit -m "feat(backend): blind recount of products that do not match"
 
 Run: `cd frontend && npm run test` → PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src
@@ -431,16 +431,16 @@ git commit -m "feat(frontend): blind recount step before saving a count"
 **Files:**
 - Modify: `README.md` (sección "Otro comercio")
 
-- [ ] **Step 1: Verificar que no hay datos de un comercio en el código**
+- [x] **Step 1: Verificar que no hay datos de un comercio en el código**
 
 Run: `grep -rni "hornos" backend/src frontend/src --exclude=*.test.ts --exclude=*.test.tsx`
 Expected: sin resultados (hoy solo aparece en tests).
 
-- [ ] **Step 2: Documentar**
+- [x] **Step 2: Documentar**
 
 En `README.md`, bajo "Deploy en Railway", sección `### Otro comercio`: un proyecto de Railway nuevo por comercio (Postgres + backend + frontend, mismas variables), con sus propias `FUDO_API_KEY`/`FUDO_API_SECRET`, `TELEGRAM_CHAT_ID` del dueño de ese comercio, `BOOTSTRAP_OWNER_*` propio y `RECOUNT_MIN_DIFFERENCE` si se quiere otro umbral. Una línea: "Multi-comercio en un solo deploy queda para cuando haya 3+ comercios o haga falta un panel del implementador."
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md
@@ -451,5 +451,6 @@ git commit -m "docs: one railway project per shop"
 
 ### Verificación final
 
-- [ ] Run: `npm run lint && npm run format:check && npm run test && npm run ai:check` desde la raíz → todo PASS, mostrar la salida.
+- [x] Run: `npm run lint && npm run format:check && npm run test && npm run ai:check` desde la raíz → todo PASS, mostrar la salida.
 - [ ] Prueba manual en el celular (dev server): lista "Alto riesgo" de 5 productos en orden de góndola, uno con bulto de 10, contar con un número mal a propósito → pide recuento sin cifras → guardar → el dueño ve "1er conteo" en el detalle.
+  - Pendiente: no hay un entorno local con datos de demostración ni un dispositivo móvil conectado para recorrer este flujo sin usar credenciales o datos reales.
