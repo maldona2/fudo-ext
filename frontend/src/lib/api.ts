@@ -31,9 +31,10 @@ export function errorMessage(err: unknown): string {
     case 400:
       if (
         isAxiosError(err) &&
-        typeof err.response?.data?.error?.message === 'string'
+        err.response?.data?.error?.message ===
+          'El recuento venció. Volvé a empezar.'
       ) {
-        return err.response.data.error.message;
+        return 'El recuento venció. Volvé a empezar.';
       }
       return 'Revisá los datos ingresados.';
     case 401:

@@ -28,4 +28,17 @@ describe('errorMessage', () => {
 
     expect(errorMessage(error)).toBe('Algo salió mal. Probá de nuevo.');
   });
+
+  it('does not show arbitrary server details for a 400 response', () => {
+    const error = new AxiosError('Request failed');
+    error.response = {
+      data: { error: { message: 'parser internals: column xyz missing' } },
+      status: 400,
+      statusText: 'Bad Request',
+      headers: {},
+      config: { headers: {} },
+    };
+
+    expect(errorMessage(error)).toBe('Revisá los datos ingresados.');
+  });
 });

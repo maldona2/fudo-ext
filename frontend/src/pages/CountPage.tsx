@@ -32,6 +32,7 @@ const RECOUNT_KEY = 'count-recount';
 interface RecountState {
   checkId: string;
   ids: string[];
+  entryIds?: string[];
 }
 
 const loadListId = (): string | null => {
@@ -50,6 +51,13 @@ const loadDraft = (key = DRAFT_KEY): CountDraft => {
   }
 };
 
+const clearDraftIds = (draft: CountDraft, ids: string[]): CountDraft => {
+  if (ids.length === 0) return draft;
+  const next = { ...draft };
+  for (const id of ids) delete next[id];
+  return next;
+};
+
 const loadRecount = (): RecountState | null => {
   try {
     const value: unknown = JSON.parse(
@@ -62,9 +70,18 @@ const loadRecount = (): RecountState | null => {
       typeof value.checkId === 'string' &&
       'ids' in value &&
       Array.isArray(value.ids) &&
-      value.ids.every((id) => typeof id === 'string')
+      value.ids.every((id) => typeof id === 'string') &&
+      (!('entryIds' in value) ||
+        (Array.isArray(value.entryIds) &&
+          value.entryIds.every((id) => typeof id === 'string')))
     ) {
-      return { checkId: value.checkId, ids: value.ids };
+      return {
+        checkId: value.checkId,
+        ids: value.ids,
+        ...('entryIds' in value && Array.isArray(value.entryIds)
+          ? { entryIds: value.entryIds }
+          : {}),
+      };
     }
     return null;
   } catch {
@@ -78,9 +95,13 @@ export function CountPage() {
   const [list, setList] = useState<CountProduct[] | null>(null);
   const [lists, setLists] = useState<CountList[]>([]);
   const [listId, setListId] = useState<string | null>(loadListId);
-  const [draft, setDraft] = useState<CountDraft>(() => loadDraft());
-  const [packs, setPacks] = useState<PackDraft>(() => loadDraft(PACKS_KEY));
   const [recount, setRecount] = useState<RecountState | null>(loadRecount);
+  const [draft, setDraft] = useState<CountDraft>(() =>
+    clearDraftIds(loadDraft(), recount?.ids ?? [])
+  );
+  const [packs, setPacks] = useState<PackDraft>(() =>
+    clearDraftIds(loadDraft(PACKS_KEY), recount?.ids ?? [])
+  );
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [canStartAgain, setCanStartAgain] = useState(false);
@@ -147,12 +168,18 @@ export function CountPage() {
     const productsById = new Map(
       (list ?? []).map((product) => [product.id, product])
     );
-    const ordered = chosen
-      ? chosen.productIds.flatMap((id) => {
-          const product = productsById.get(id);
-          return product ? [product] : [];
-        })
-      : (list ?? []);
+    const productOrder = recount
+      ? [
+          ...(recount.entryIds ??
+            chosen?.productIds ??
+            (list ?? []).map((product) => product.id)),
+          ...recount.ids,
+        ]
+      : (chosen?.productIds ?? (list ?? []).map((product) => product.id));
+    const ordered = [...new Set(productOrder)].flatMap((id) => {
+      const product = productsById.get(id);
+      return product ? [product] : [];
+    });
     const visible = ordered.filter(
       (p) =>
         (!recount || recount.ids.includes(p.id)) &&
@@ -170,15 +197,18 @@ export function CountPage() {
   }, [list, query, chosen, recount]);
 
   // Only what belongs to the chosen list is sent.
+  const entryScope = recount
+    ? new Set([...(recount.entryIds ?? []), ...recount.ids])
+    : scope;
   const { entries, invalid } = draftToEntries(
-    scope
+    entryScope
       ? Object.fromEntries(
-          Object.entries(draft).filter(([id]) => scope.has(id))
+          Object.entries(draft).filter(([id]) => entryScope.has(id))
         )
       : draft,
-    scope
+    entryScope
       ? Object.fromEntries(
-          Object.entries(packs).filter(([id]) => scope.has(id))
+          Object.entries(packs).filter(([id]) => entryScope.has(id))
         )
       : packs,
     unitsPerPack
@@ -196,7 +226,16 @@ export function CountPage() {
     : countedInList;
   const recountComplete =
     !recount ||
-    recount.ids.every((id) => entries.some((entry) => entry.productId === id));
+    (list !== null &&
+      recount.ids.every(
+        (id) =>
+          availableProductIds.has(id) &&
+          entries.some((entry) => entry.productId === id)
+      ));
+  const unavailableRecountIds =
+    recount && list
+      ? recount.ids.filter((id) => !availableProductIds.has(id))
+      : [];
 
   const markNone = (id: string) => {
     setDraft((current) => ({ ...current, [id]: '0' }));
@@ -232,26 +271,39 @@ export function CountPage() {
           scope && listId ? { entries, listId } : { entries }
         );
         if (checked.recount.length > 0) {
+          const checkedIds = new Set(entries.map((entry) => entry.productId));
+          const sourceOrder =
+            chosen?.productIds ?? (list ?? []).map((p) => p.id);
           const nextRecount = {
             checkId: checked.checkId,
             ids: checked.recount,
+            entryIds: [
+              ...sourceOrder.filter((id) => checkedIds.has(id)),
+              ...entries
+                .map((entry) => entry.productId)
+                .filter((id) => !sourceOrder.includes(id)),
+            ],
           };
+          const nextDraft = clearDraftIds(draft, checked.recount);
+          const nextPacks = clearDraftIds(packs, checked.recount);
+          setDraft(nextDraft);
+          setPacks(nextPacks);
+          try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(nextDraft));
+          } catch {
+            // The count can continue if storage is unavailable.
+          }
+          try {
+            localStorage.setItem(PACKS_KEY, JSON.stringify(nextPacks));
+          } catch {
+            // The count can continue if storage is unavailable.
+          }
           setRecount(nextRecount);
           try {
             localStorage.setItem(RECOUNT_KEY, JSON.stringify(nextRecount));
           } catch {
             // The count can continue if storage is unavailable.
           }
-          setDraft((current) => {
-            const next = { ...current };
-            for (const id of checked.recount) delete next[id];
-            return next;
-          });
-          setPacks((current) => {
-            const next = { ...current };
-            for (const id of checked.recount) delete next[id];
-            return next;
-          });
           setQuery('');
           return;
         }
@@ -355,20 +407,26 @@ export function CountPage() {
       </div>
 
       {error && <Notice tone="error">{error}</Notice>}
-      {recount && !error && (
+      {recount && unavailableRecountIds.length > 0 && (
+        <Notice>
+          Algunos productos que necesitabas volver a contar ya no están
+          disponibles. Empezá de nuevo para continuar.
+        </Notice>
+      )}
+      {recount && !error && unavailableRecountIds.length === 0 && (
         <Notice>
           Volvé a contar {recount.ids.length}{' '}
           {recount.ids.length === 1 ? 'producto' : 'productos'}. Contalos de
           nuevo con calma.
         </Notice>
       )}
-      {canStartAgain && recount && (
+      {(canStartAgain || unavailableRecountIds.length > 0) && recount && (
         <Button type="button" variant="outline" onClick={startAgain}>
           Empezar de nuevo
         </Button>
       )}
       {!list && !error && <Notice>Cargando productos…</Notice>}
-      {list && groups.length === 0 && (
+      {list && groups.length === 0 && unavailableRecountIds.length === 0 && (
         <Notice>No hay productos con ese nombre.</Notice>
       )}
 

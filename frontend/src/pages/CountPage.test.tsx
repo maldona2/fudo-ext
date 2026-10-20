@@ -6,28 +6,31 @@ import { MemoryRouter } from 'react-router-dom';
 const create = vi.fn();
 const check = vi.fn();
 const errorMessage = vi.fn(() => 'Algo salió mal. Probá de nuevo.');
+let countListProductIds = ['30', '999', '16'];
+let unavailableProductIds: string[] = [];
 let cocaPack: { units: number; label: string } | null = null;
 
 vi.mock('@/lib/api', () => ({
   products: {
-    listForCount: async () => [
-      { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
-      { id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
-      {
-        id: '30',
-        name: 'Coca 1.5L',
-        code: '7',
-        category: 'Bebidas',
-        pack: cocaPack,
-      },
-    ],
+    listForCount: async () =>
+      [
+        { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
+        { id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
+        {
+          id: '30',
+          name: 'Coca 1.5L',
+          code: '7',
+          category: 'Bebidas',
+          pack: cocaPack,
+        },
+      ].filter((product) => !unavailableProductIds.includes(product.id)),
   },
   countLists: {
     list: async () => [
       {
         id: 'list-1',
         name: 'Diario - alto riesgo',
-        productIds: ['30', '999', '16'],
+        productIds: countListProductIds,
       },
     ],
   },
@@ -50,6 +53,8 @@ describe('CountPage', () => {
   beforeEach(() => {
     cocaPack = { units: 6, label: 'fardo' };
     localStorage.clear();
+    countListProductIds = ['30', '999', '16'];
+    unavailableProductIds = [];
     create.mockReset();
     check.mockReset().mockResolvedValue({ checkId: 'check-1', recount: [] });
     errorMessage.mockReset().mockReturnValue('Algo salió mal. Probá de nuevo.');
@@ -407,6 +412,10 @@ describe('CountPage', () => {
     );
 
     await userEvent.type(
+      await screen.findByRole('textbox', { name: /Carne suave/ }),
+      '8'
+    );
+    await userEvent.type(
       await screen.findByRole('textbox', { name: /Pollo/ }),
       '123'
     );
@@ -415,6 +424,12 @@ describe('CountPage', () => {
     );
 
     expect(window.confirm).toHaveBeenCalled();
+    expect(check).toHaveBeenCalledWith({
+      entries: [
+        { productId: '14', counted: 8 },
+        { productId: '16', counted: 123 },
+      ],
+    });
     expect(
       await screen.findByText(
         'Volvé a contar 1 producto. Contalos de nuevo con calma.'
@@ -428,8 +443,13 @@ describe('CountPage', () => {
     expect(visibleText).not.toMatch(/falta|sobra|sistema/);
     expect(visibleText).not.toContain('123');
     expect(localStorage.getItem('count-recount')).toBe(
-      JSON.stringify({ checkId: 'check-2', ids: ['16'] })
+      JSON.stringify({
+        checkId: 'check-2',
+        ids: ['16'],
+        entryIds: ['14', '16'],
+      })
     );
+    expect(localStorage.getItem('count-draft')).toBe('{"14":"8"}');
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -527,13 +547,113 @@ describe('CountPage', () => {
     );
   });
 
+  it('clears flagged loose and pack drafts while hydrating a recount', async () => {
+    localStorage.setItem(
+      'count-recount',
+      JSON.stringify({ checkId: 'check-2', ids: ['30'] })
+    );
+    localStorage.setItem(
+      'count-draft',
+      JSON.stringify({ '14': '8', '30': '2' })
+    );
+    localStorage.setItem('count-draft-packs', JSON.stringify({ '30': '3' }));
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByLabelText('Sueltas de Coca 1.5L')).toHaveValue(
+      ''
+    );
+    expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('');
+    expect(screen.getByText('Llevás 0 de 1')).toBeInTheDocument();
+    expect(localStorage.getItem('count-draft')).not.toContain('"30"');
+    expect(localStorage.getItem('count-draft-packs')).not.toContain('"30"');
+    expect(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    ).toBeDisabled();
+  });
+
+  it('keeps a required recount product visible and included when list membership changes', async () => {
+    countListProductIds = ['30', '16'];
+    localStorage.setItem('count-list', 'list-1');
+    localStorage.setItem(
+      'count-recount',
+      JSON.stringify({
+        checkId: 'check-2',
+        ids: ['14'],
+        entryIds: ['30', '14', '16'],
+      })
+    );
+    localStorage.setItem(
+      'count-draft',
+      JSON.stringify({ '14': '', '16': '7', '30': '5' })
+    );
+    create.mockResolvedValue({ id: 'c1' });
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    const carne = await screen.findByRole('textbox', { name: /Carne suave/ });
+    expect(carne).toHaveValue('');
+    expect(
+      screen.queryByRole('textbox', { name: /Pollo/ })
+    ).not.toBeInTheDocument();
+    await userEvent.type(carne, '4');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+
+    expect(create).toHaveBeenCalledWith({
+      entries: expect.arrayContaining([
+        { productId: '30', counted: 5 },
+        { productId: '14', counted: 4 },
+        { productId: '16', counted: 7 },
+      ]),
+      checkId: 'check-2',
+      listId: 'list-1',
+    });
+    expect(create.mock.calls[0][0].entries).toHaveLength(3);
+  });
+
+  it('offers a safe restart when a required product is no longer countable', async () => {
+    countListProductIds = ['30', '16'];
+    unavailableProductIds = ['14'];
+    localStorage.setItem('count-list', 'list-1');
+    localStorage.setItem(
+      'count-recount',
+      JSON.stringify({ checkId: 'check-2', ids: ['14'], entryIds: ['14'] })
+    );
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByText(
+        'Algunos productos que necesitabas volver a contar ya no están disponibles. Empezá de nuevo para continuar.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    ).toBeDisabled();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Empezar de nuevo' })
+    );
+    expect(localStorage.getItem('count-recount')).toBeNull();
+  });
+
   it('shows the server message for an expired recount and lets the counter start again', async () => {
     localStorage.setItem(
       'count-recount',
       JSON.stringify({ checkId: 'expired-check', ids: ['16'] })
     );
     create.mockRejectedValue(new Error('expired'));
-    errorMessage.mockReturnValue('El chequeo venció. Empezá un conteo nuevo.');
+    errorMessage.mockReturnValue('El recuento venció. Volvé a empezar.');
     render(
       <MemoryRouter>
         <CountPage />
@@ -549,7 +669,7 @@ describe('CountPage', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'El chequeo venció. Empezá un conteo nuevo.'
+      'El recuento venció. Volvé a empezar.'
     );
     await userEvent.click(
       screen.getByRole('button', { name: 'Empezar de nuevo' })
