@@ -57,7 +57,10 @@ describe('CountPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByLabelText(/Carne suave/), '10');
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Carne suave/ }),
+      '10'
+    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Guardar conteo' })
     );
@@ -75,7 +78,10 @@ describe('CountPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByLabelText(/Pollo/), '3');
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Pollo/ }),
+      '3'
+    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Guardar conteo' })
     );
@@ -91,7 +97,10 @@ describe('CountPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByLabelText(/Pollo/), 'tres');
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Pollo/ }),
+      'tres'
+    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Guardar conteo' })
     );
@@ -106,7 +115,10 @@ describe('CountPage', () => {
         <CountPage />
       </MemoryRouter>
     );
-    await userEvent.type(await screen.findByLabelText(/Pollo/), '7');
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Pollo/ }),
+      '7'
+    );
     first.unmount();
 
     render(
@@ -115,7 +127,9 @@ describe('CountPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByLabelText(/Pollo/)).toHaveValue('7');
+    expect(await screen.findByRole('textbox', { name: /Pollo/ })).toHaveValue(
+      '7'
+    );
   });
 
   it('shows only the products of the chosen list and saves the count with it', async () => {
@@ -126,13 +140,18 @@ describe('CountPage', () => {
       </MemoryRouter>
     );
 
-    await userEvent.type(await screen.findByLabelText(/Carne suave/), '10');
+    await userEvent.type(
+      await screen.findByRole('textbox', { name: /Carne suave/ }),
+      '10'
+    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Diario - alto riesgo' })
     );
 
-    expect(screen.queryByLabelText(/Carne suave/)).not.toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText(/Pollo/), '3');
+    expect(
+      screen.queryByRole('textbox', { name: /Carne suave/ })
+    ).not.toBeInTheDocument();
+    await userEvent.type(screen.getByRole('textbox', { name: /Pollo/ }), '3');
     await userEvent.click(
       screen.getByRole('button', { name: 'Guardar conteo' })
     );
@@ -141,6 +160,69 @@ describe('CountPage', () => {
     expect(create).toHaveBeenCalledWith({
       entries: [{ productId: '16', counted: 3 }],
       listId: 'list-1',
+    });
+  });
+
+  it('shows how many products of the list are counted', async () => {
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Diario - alto riesgo' })
+    );
+
+    expect(screen.getByText('Llevás 0 de 2')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Sueltas de Coca 1.5L'), '2');
+    expect(screen.getByText('Llevás 1 de 2')).toBeInTheDocument();
+    expect(screen.getByLabelText('Contado: Coca 1.5L')).toBeInTheDocument();
+  });
+
+  it('marks a product as zero with "No hay ninguno"', async () => {
+    create.mockResolvedValue({ id: 'c1' });
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'No hay ninguno: Pollo' })
+    );
+    expect(screen.getByRole('textbox', { name: /Pollo/ })).toHaveValue('0');
+    expect(screen.getByLabelText('Contado: Pollo')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+    expect(create).toHaveBeenCalledWith({
+      entries: [{ productId: '16', counted: 0 }],
+    });
+  });
+
+  it('sets loose to 0 and clears packs for a product with a pack', async () => {
+    create.mockResolvedValue({ id: 'c1' });
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    await userEvent.type(
+      await screen.findByLabelText('Fardos de Coca 1.5L'),
+      '3'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'No hay ninguno: Coca 1.5L' })
+    );
+    expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('');
+    expect(screen.getByLabelText('Sueltas de Coca 1.5L')).toHaveValue('0');
+    expect(screen.getByText('= 0 u.')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+    expect(create).toHaveBeenCalledWith({
+      entries: [{ productId: '30', counted: 0 }],
     });
   });
 

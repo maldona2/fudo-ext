@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Check, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Notice } from '@/components/Notice';
@@ -152,6 +152,23 @@ export function CountPage() {
     unitsPerPack
   );
 
+  const availableProductIds = new Set((list ?? []).map((p) => p.id));
+  const listTotal = chosen?.productIds.filter((id) =>
+    availableProductIds.has(id)
+  ).length;
+  const countedInList = entries.filter((entry) =>
+    availableProductIds.has(entry.productId)
+  ).length;
+
+  const markNone = (id: string) => {
+    setDraft((current) => ({ ...current, [id]: '0' }));
+    setPacks((current) => {
+      const remaining = { ...current };
+      delete remaining[id];
+      return remaining;
+    });
+  };
+
   const save = async () => {
     if (invalid.length > 0) {
       setError(
@@ -274,14 +291,22 @@ export function CountPage() {
                 const closed = parsePacks(packValue);
                 return (
                   <li key={p.id} className="space-y-2 px-3 py-3">
-                    <p className="text-base">
-                      {p.name}
-                      {p.code && (
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          #{p.code}
-                        </span>
+                    <div className="flex items-center gap-2">
+                      {total !== undefined && (
+                        <Check
+                          aria-label={`Contado: ${p.name}`}
+                          className="size-5 shrink-0 text-primary"
+                        />
                       )}
-                    </p>
+                      <p className="text-base">
+                        {p.name}
+                        {p.code && (
+                          <span className="ml-2 text-sm text-muted-foreground">
+                            #{p.code}
+                          </span>
+                        )}
+                      </p>
+                    </div>
                     <div className="flex flex-wrap items-end gap-3">
                       <label className="min-w-0 flex-1 space-y-1">
                         <span className="text-sm">{packLabel}</span>
@@ -335,6 +360,15 @@ export function CountPage() {
                     {total !== undefined && (
                       <p className="text-sm font-semibold">= {total} u.</p>
                     )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={`No hay ninguno: ${p.name}`}
+                      onClick={() => markNone(p.id)}
+                    >
+                      No hay ninguno
+                    </Button>
                   </li>
                 );
               }
@@ -343,6 +377,12 @@ export function CountPage() {
                   key={p.id}
                   className="flex flex-wrap items-center gap-3 px-3 py-2"
                 >
+                  {total !== undefined && (
+                    <Check
+                      aria-label={`Contado: ${p.name}`}
+                      className="size-5 shrink-0 text-primary"
+                    />
+                  )}
                   <label htmlFor={`q-${p.id}`} className="flex-1 text-base">
                     {p.name}
                     {p.code && (
@@ -363,6 +403,15 @@ export function CountPage() {
                       setDraft((d) => ({ ...d, [p.id]: e.target.value }))
                     }
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`No hay ninguno: ${p.name}`}
+                    onClick={() => markNone(p.id)}
+                  >
+                    No hay ninguno
+                  </Button>
                   {packValue.trim() !== '' && (
                     <div className="w-full space-y-2 rounded-md bg-muted p-3">
                       <p className="text-sm">
@@ -398,7 +447,13 @@ export function CountPage() {
       <div className="fixed inset-x-0 bottom-0 border-t bg-background">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <span className="flex-1 text-base">
-            {plural(entries.length, 'producto contado', 'productos contados')}
+            {chosen
+              ? `Llevás ${countedInList} de ${listTotal}`
+              : plural(
+                  entries.length,
+                  'producto contado',
+                  'productos contados'
+                )}
           </span>
           <Button
             className="h-12 px-6 text-lg"
