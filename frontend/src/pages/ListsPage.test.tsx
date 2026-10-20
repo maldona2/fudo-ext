@@ -4,18 +4,22 @@ import userEvent from '@testing-library/user-event';
 
 const create = vi.fn();
 const remove = vi.fn();
+const update = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   products: {
     listForCount: async () => [
       { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
       { id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
+      { id: '30', name: 'Coca', code: '7', category: 'Bebidas' },
     ],
   },
   countLists: {
-    list: async () => [{ id: 'list-1', name: 'Diario', productIds: ['14'] }],
+    list: async () => [
+      { id: 'list-1', name: 'Diario', productIds: ['16', '14'] },
+    ],
     create: (...args: unknown[]) => create(...args),
-    update: vi.fn(),
+    update: (...args: unknown[]) => update(...args),
     remove: (...args: unknown[]) => remove(...args),
   },
   errorMessage: () => 'Ya existe una lista con ese nombre.',
@@ -27,6 +31,7 @@ describe('ListsPage', () => {
   beforeEach(() => {
     create.mockReset();
     remove.mockReset();
+    update.mockReset();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -48,6 +53,53 @@ describe('ListsPage', () => {
     );
 
     expect(create).toHaveBeenCalledWith({ name: 'Riesgo', productIds: ['16'] });
+  });
+
+  it('saves products in the walking order set with the arrows', async () => {
+    create.mockResolvedValue({ id: 'new' });
+    render(<ListsPage />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Nueva lista' })
+    );
+    await userEvent.type(
+      screen.getByLabelText('Nombre de la lista'),
+      'Recorrido'
+    );
+    for (const name of ['Carne suave', 'Pollo', 'Coca']) {
+      await userEvent.click(screen.getByRole('checkbox', { name }));
+    }
+    expect(
+      screen.getByRole('button', { name: 'Subir Carne suave' })
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Bajar Coca' })).toBeDisabled();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Bajar Carne suave' })
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar lista' })
+    );
+    expect(create).toHaveBeenCalledWith({
+      name: 'Recorrido',
+      productIds: ['16', '14', '30'],
+    });
+  });
+
+  it('keeps an existing walking order and appends a reselected product', async () => {
+    render(<ListsPage />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Editar Diario' })
+    );
+    expect(screen.getByRole('button', { name: 'Subir Pollo' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pollo' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Pollo' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Subir Pollo' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar lista' })
+    );
+    expect(update).toHaveBeenCalledWith('list-1', {
+      name: 'Diario',
+      productIds: ['16', '14'],
+    });
   });
 
   it('does not save a list without products', async () => {

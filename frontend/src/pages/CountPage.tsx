@@ -77,10 +77,14 @@ export function CountPage() {
     }
   }, [listId]);
 
-  const scope = useMemo(() => {
-    const chosen = lists.find((l) => l.id === listId);
-    return chosen ? new Set(chosen.productIds) : null;
-  }, [lists, listId]);
+  const chosen = useMemo(
+    () => lists.find((l) => l.id === listId),
+    [lists, listId]
+  );
+  const scope = useMemo(
+    () => (chosen ? new Set(chosen.productIds) : null),
+    [chosen]
+  );
 
   useEffect(() => {
     try {
@@ -110,18 +114,28 @@ export function CountPage() {
 
   const groups = useMemo(() => {
     const q = normalize(query.trim());
-    const visible = (list ?? []).filter(
-      (p) =>
-        (!scope || scope.has(p.id)) &&
-        (!q || normalize(p.name).includes(q) || p.code === q)
+    const productsById = new Map(
+      (list ?? []).map((product) => [product.id, product])
     );
+    const ordered = chosen
+      ? chosen.productIds.flatMap((id) => {
+          const product = productsById.get(id);
+          return product ? [product] : [];
+        })
+      : (list ?? []);
+    const visible = ordered.filter(
+      (p) => !q || normalize(p.name).includes(q) || p.code === q
+    );
+    if (chosen) {
+      return visible.length > 0 ? [[chosen.name, visible] as const] : [];
+    }
     const byCategory = new Map<string, CountProduct[]>();
     for (const p of visible) {
       const key = p.category ?? 'Sin categoría';
       byCategory.set(key, [...(byCategory.get(key) ?? []), p]);
     }
     return [...byCategory];
-  }, [list, query, scope]);
+  }, [list, query, chosen]);
 
   // Only what belongs to the chosen list is sent.
   const { entries, invalid } = draftToEntries(

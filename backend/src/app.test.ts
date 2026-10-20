@@ -516,6 +516,33 @@ describe('count lists', () => {
     ]);
   });
 
+  it('preserves walking order in owner writes and blind counter reads', async () => {
+    const { services, created } = makeServices();
+    const input = { name: 'Recorrido', productIds: ['16', '13'] };
+    services.countLists.list = async () => [
+      { id: LIST_ID, ...input, systemStock: 100 },
+    ];
+    const app = createApp(services);
+    const post = await request(app)
+      .post('/api/count-lists')
+      .set(...asOwner)
+      .send(input);
+    const put = await request(app)
+      .put(`/api/count-lists/${LIST_ID}`)
+      .set(...asOwner)
+      .send(input);
+    const get = await request(app)
+      .get('/api/count-lists')
+      .set(...asCounter);
+    expect(post.status).toBe(201);
+    expect(post.body.list).toEqual({ id: LIST_ID, ...input });
+    expect(put.status).toBe(200);
+    expect(put.body.list).toEqual({ id: LIST_ID, ...input });
+    expect(get.status).toBe(200);
+    expect(get.body.lists).toEqual([{ id: LIST_ID, ...input }]);
+    expect(created).toEqual([input, input]);
+  });
+
   it('answers 401 without a session', async () => {
     const { services } = makeServices();
     const res = await request(createApp(services)).get('/api/count-lists');

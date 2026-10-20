@@ -22,7 +22,11 @@ vi.mock('@/lib/api', () => ({
   },
   countLists: {
     list: async () => [
-      { id: 'list-1', name: 'Diario - alto riesgo', productIds: ['16', '30'] },
+      {
+        id: 'list-1',
+        name: 'Diario - alto riesgo',
+        productIds: ['30', '999', '16'],
+      },
     ],
   },
   counts: { create: (...args: unknown[]) => create(...args) },
@@ -138,6 +142,36 @@ describe('CountPage', () => {
       entries: [{ productId: '16', counted: 3 }],
       listId: 'list-1',
     });
+  });
+
+  it('lists the products of a list in walking order without category groups', async () => {
+    cocaPack = null;
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Diario - alto riesgo' })
+    );
+    expect(screen.getAllByRole('textbox').map((input) => input.id)).toEqual([
+      'q-30',
+      'q-16',
+    ]);
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    ).toEqual(['Diario - alto riesgo']);
+    await userEvent.type(screen.getByRole('searchbox'), 'Pollo');
+    expect(screen.getAllByRole('textbox').map((input) => input.id)).toEqual([
+      'q-16',
+    ]);
+    await userEvent.clear(screen.getByRole('searchbox'));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Todos los productos' })
+    );
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
+    ).toEqual(['Empanadas', 'Bebidas']);
   });
 
   it('shows packs and loose fields for products with a pack and sends the total', async () => {

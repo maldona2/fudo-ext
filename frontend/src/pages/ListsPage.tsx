@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import type { CountList, CountProduct } from '@/types/api';
 interface Editing {
   id: string | null; // null: new list
   name: string;
-  productIds: Set<string>;
+  productIds: string[];
 }
 
 function ListEditor({
@@ -32,7 +32,11 @@ function ListEditor({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(initial.name);
-  const [selected, setSelected] = useState(initial.productIds);
+  const [order, setOrder] = useState(initial.productIds);
+  const productsById = useMemo(
+    () => new Map(products.map((product) => [product.id, product])),
+    [products]
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -46,10 +50,18 @@ function ListEditor({
   }, [products]);
 
   const toggle = (id: string) =>
-    setSelected((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+    setOrder((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
+    );
+
+  const move = (index: number, direction: -1 | 1) =>
+    setOrder((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
 
@@ -57,10 +69,9 @@ function ListEditor({
     e.preventDefault();
     setBusy(true);
     setError(null);
-    // Keep the screen order (category, then name) in the saved list.
     const input = {
       name: name.trim(),
-      productIds: products.filter((p) => selected.has(p.id)).map((p) => p.id),
+      productIds: order,
     };
     try {
       if (initial.id) await listsApi.update(initial.id, input);
@@ -110,7 +121,7 @@ function ListEditor({
                   <input
                     type="checkbox"
                     className="size-5"
-                    checked={selected.has(p.id)}
+                    checked={order.includes(p.id)}
                     onChange={() => toggle(p.id)}
                   />
                   {p.name}
@@ -119,12 +130,56 @@ function ListEditor({
             </fieldset>
           ))}
 
+          {order.length > 0 && (
+            <section aria-labelledby="walking-order" className="space-y-2">
+              <h2 id="walking-order" className="text-base font-semibold">
+                Orden de recorrido
+              </h2>
+              <ol className="space-y-2">
+                {order.map((id, index) => {
+                  const product = productsById.get(id);
+                  if (!product) return null;
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-center gap-2 rounded-lg border p-2"
+                    >
+                      <span className="min-w-0 flex-1 break-words">
+                        {index + 1}. {product.name}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="size-12 shrink-0"
+                        aria-label={`Subir ${product.name}`}
+                        disabled={index === 0}
+                        onClick={() => move(index, -1)}
+                      >
+                        <ArrowUp aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="size-12 shrink-0"
+                        aria-label={`Bajar ${product.name}`}
+                        disabled={index === order.length - 1}
+                        onClick={() => move(index, 1)}
+                      >
+                        <ArrowDown aria-hidden="true" />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
+
           {error && <Notice tone="error">{error}</Notice>}
           <div className="flex gap-2">
             <Button
               type="submit"
               className="h-12 flex-1 text-lg"
-              disabled={busy || selected.size === 0 || name.trim() === ''}
+              disabled={busy || order.length === 0 || name.trim() === ''}
             >
               Guardar lista
             </Button>
@@ -138,7 +193,7 @@ function ListEditor({
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            {plural(selected.size, 'producto elegido', 'productos elegidos')}
+            {plural(order.length, 'producto elegido', 'productos elegidos')}
           </p>
         </form>
       </CardContent>
@@ -228,7 +283,7 @@ export function ListsPage() {
                 setEditing({
                   id: l.id,
                   name: l.name,
-                  productIds: new Set(l.productIds),
+                  productIds: [...l.productIds],
                 })
               }
             >
@@ -247,9 +302,7 @@ export function ListsPage() {
       </ul>
       <Button
         className="h-12 w-full text-lg"
-        onClick={() =>
-          setEditing({ id: null, name: '', productIds: new Set() })
-        }
+        onClick={() => setEditing({ id: null, name: '', productIds: [] })}
       >
         Nueva lista
       </Button>

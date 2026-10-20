@@ -11,7 +11,7 @@ interface ListRow {
 
 const SELECT_LISTS = `
   SELECT l.id, l.name,
-         array_agg(p.product_id ORDER BY p.product_id)
+         array_agg(p.product_id ORDER BY p.position, p.product_id)
            FILTER (WHERE p.product_id IS NOT NULL) AS product_ids
     FROM count_lists l
     LEFT JOIN count_list_products p ON p.list_id = l.id`;
@@ -31,8 +31,9 @@ const replaceProducts = async (
     listId,
   ]);
   await client.query(
-    `INSERT INTO count_list_products (list_id, product_id)
-     SELECT $1, unnest($2::text[])`,
+    `INSERT INTO count_list_products (list_id, product_id, position)
+     SELECT $1, id, ord
+       FROM unnest($2::text[]) WITH ORDINALITY AS t(id, ord)`,
     [listId, productIds]
   );
 };

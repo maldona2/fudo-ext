@@ -79,4 +79,14 @@ describe('count lists service', () => {
       { id: 'a', name: 'Diario', productIds: ['14'] },
     ]);
   });
+  it('keeps the saved order when a product drops out of FUDO', async () => {
+    const { service } = setup({
+      list: async () => [
+        { id: 'a', name: 'Recorrido', productIds: ['16', '999', '13'] },
+      ],
+    });
+    await expect(service.list()).resolves.toEqual([
+      { id: 'a', name: 'Recorrido', productIds: ['16', '13'] },
+    ]);
+  });
 });
