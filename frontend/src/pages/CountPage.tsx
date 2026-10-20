@@ -32,7 +32,14 @@ const RECOUNT_KEY = 'count-recount';
 interface RecountState {
   checkId: string;
   ids: string[];
+  phase?: 'resetting' | 'active';
   entryIds?: string[];
+}
+
+interface CountInitialState {
+  recount: RecountState | null;
+  draft: CountDraft;
+  packs: PackDraft;
 }
 
 const loadListId = (): string | null => {
@@ -78,6 +85,10 @@ const loadRecount = (): RecountState | null => {
       return {
         checkId: value.checkId,
         ids: value.ids,
+        ...('phase' in value &&
+        (value.phase === 'resetting' || value.phase === 'active')
+          ? { phase: value.phase }
+          : {}),
         ...('entryIds' in value && Array.isArray(value.entryIds)
           ? { entryIds: value.entryIds }
           : {}),
@@ -89,19 +100,37 @@ const loadRecount = (): RecountState | null => {
   }
 };
 
+const loadInitialState = (): CountInitialState => {
+  let recount = loadRecount();
+  let draft = loadDraft();
+  let packs = loadDraft(PACKS_KEY);
+  if (recount?.phase === 'resetting') {
+    draft = clearDraftIds(draft, recount.ids);
+    packs = clearDraftIds(packs, recount.ids);
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      localStorage.setItem(PACKS_KEY, JSON.stringify(packs));
+      recount = { ...recount, phase: 'active' };
+      localStorage.setItem(RECOUNT_KEY, JSON.stringify(recount));
+    } catch {
+      // Keep the resetting marker so a later reload repeats the safe scrub.
+    }
+  }
+  return { recount, draft, packs };
+};
+
 export function CountPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [initialState] = useState(loadInitialState);
   const [list, setList] = useState<CountProduct[] | null>(null);
   const [lists, setLists] = useState<CountList[]>([]);
   const [listId, setListId] = useState<string | null>(loadListId);
-  const [recount, setRecount] = useState<RecountState | null>(loadRecount);
-  const [draft, setDraft] = useState<CountDraft>(() =>
-    clearDraftIds(loadDraft(), recount?.ids ?? [])
+  const [recount, setRecount] = useState<RecountState | null>(
+    initialState.recount
   );
-  const [packs, setPacks] = useState<PackDraft>(() =>
-    clearDraftIds(loadDraft(PACKS_KEY), recount?.ids ?? [])
-  );
+  const [draft, setDraft] = useState<CountDraft>(initialState.draft);
+  const [packs, setPacks] = useState<PackDraft>(initialState.packs);
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [canStartAgain, setCanStartAgain] = useState(false);
@@ -226,7 +255,8 @@ export function CountPage() {
     : countedInList;
   const recountComplete =
     !recount ||
-    (list !== null &&
+    (Boolean(recount.entryIds) &&
+      list !== null &&
       recount.ids.every(
         (id) =>
           availableProductIds.has(id) &&
@@ -236,6 +266,7 @@ export function CountPage() {
     recount && list
       ? recount.ids.filter((id) => !availableProductIds.has(id))
       : [];
+  const incompleteRecountScope = Boolean(recount && !recount.entryIds);
 
   const markNone = (id: string) => {
     setDraft((current) => ({ ...current, [id]: '0' }));
@@ -277,6 +308,7 @@ export function CountPage() {
           const nextRecount = {
             checkId: checked.checkId,
             ids: checked.recount,
+            phase: 'resetting' as const,
             entryIds: [
               ...sourceOrder.filter((id) => checkedIds.has(id)),
               ...entries
@@ -286,24 +318,29 @@ export function CountPage() {
           };
           const nextDraft = clearDraftIds(draft, checked.recount);
           const nextPacks = clearDraftIds(packs, checked.recount);
-          setDraft(nextDraft);
-          setPacks(nextPacks);
-          try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify(nextDraft));
-          } catch {
-            // The count can continue if storage is unavailable.
-          }
-          try {
-            localStorage.setItem(PACKS_KEY, JSON.stringify(nextPacks));
-          } catch {
-            // The count can continue if storage is unavailable.
-          }
-          setRecount(nextRecount);
           try {
             localStorage.setItem(RECOUNT_KEY, JSON.stringify(nextRecount));
           } catch {
             // The count can continue if storage is unavailable.
           }
+          let draftsCleared = false;
+          try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(nextDraft));
+            localStorage.setItem(PACKS_KEY, JSON.stringify(nextPacks));
+            draftsCleared = true;
+          } catch {
+            // The count can continue if storage is unavailable.
+          }
+          setDraft(nextDraft);
+          setPacks(nextPacks);
+          const activeRecount = { ...nextRecount, phase: 'active' as const };
+          const storedRecount = draftsCleared ? activeRecount : nextRecount;
+          try {
+            localStorage.setItem(RECOUNT_KEY, JSON.stringify(storedRecount));
+          } catch {
+            // The count can continue if storage is unavailable.
+          }
+          setRecount(storedRecount);
           setQuery('');
           return;
         }
@@ -337,6 +374,7 @@ export function CountPage() {
 
   const startAgain = () => {
     setRecount(null);
+    if (incompleteRecountScope) setListId(null);
     setError(null);
     setCanStartAgain(false);
     try {
@@ -413,18 +451,30 @@ export function CountPage() {
           disponibles. Empezá de nuevo para continuar.
         </Notice>
       )}
-      {recount && !error && unavailableRecountIds.length === 0 && (
+      {recount && incompleteRecountScope && (
         <Notice>
-          Volvé a contar {recount.ids.length}{' '}
-          {recount.ids.length === 1 ? 'producto' : 'productos'}. Contalos de
-          nuevo con calma.
+          El recuento anterior no se puede retomar con seguridad. Empezá de
+          nuevo para revisar todos los productos.
         </Notice>
       )}
-      {(canStartAgain || unavailableRecountIds.length > 0) && recount && (
-        <Button type="button" variant="outline" onClick={startAgain}>
-          Empezar de nuevo
-        </Button>
-      )}
+      {recount &&
+        !error &&
+        !incompleteRecountScope &&
+        unavailableRecountIds.length === 0 && (
+          <Notice>
+            Volvé a contar {recount.ids.length}{' '}
+            {recount.ids.length === 1 ? 'producto' : 'productos'}. Contalos de
+            nuevo con calma.
+          </Notice>
+        )}
+      {(canStartAgain ||
+        unavailableRecountIds.length > 0 ||
+        incompleteRecountScope) &&
+        recount && (
+          <Button type="button" variant="outline" onClick={startAgain}>
+            Empezar de nuevo
+          </Button>
+        )}
       {!list && !error && <Notice>Cargando productos…</Notice>}
       {list && groups.length === 0 && unavailableRecountIds.length === 0 && (
         <Notice>No hay productos con ese nombre.</Notice>
