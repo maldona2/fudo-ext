@@ -35,11 +35,28 @@ y productos con stock a revisar (negativo, bajo el mínimo, o en 0 con ventas en
 Limitaciones: el stock es el **actual** (la API no da el stock histórico) y el contado del
 arqueo no está en la API.
 
+## Fotos de stock y conciliación (solo lectura)
+
+```bash
+python3 scripts/stock_snapshot.py --dir data/stock      # foto de hoy (no pisa la primera del día)
+python3 scripts/stock_reconcile.py 2026-10-20 --dir data/stock [--telegram]
+```
+
+La API solo da el stock actual. Cada mañana se guarda una foto (`<fecha>.csv`) y la
+conciliación de un día compara su foto con la del día siguiente:
+`inicial + compras − ventas = final`. Ventas y compras se toman con la hora exacta de cada foto.
+Lo que no cierra es un ajuste manual de stock, una compra cargada sin ítems o un producto
+cuyo stock FUDO no descuenta.
+
 ## Envío automático (GitHub Actions)
 
-`.github/workflows/resumen-diario.yml` corre todos los días a las 07:52 (hora Argentina) y
-manda por Telegram el resumen del día anterior. También se puede correr a mano desde
-**Actions → Resumen diario → Run workflow**, opcionalmente con una fecha.
+`.github/workflows/resumen-diario.yml` corre todos los días a las 07:52 (hora Argentina):
+1. Saca la foto de stock y la guarda en la rama `datos` (`stock/<fecha>.csv`).
+2. Manda por Telegram el resumen del día anterior.
+3. Manda la conciliación de stock del día anterior (desde el segundo día de fotos).
+
+También se puede correr a mano desde **Actions → Resumen diario → Run workflow**,
+opcionalmente con una fecha (con fecha no se saca foto).
 
 Secretos necesarios (Settings → Secrets and variables → Actions):
 `FUDO_API_KEY`, `FUDO_API_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.

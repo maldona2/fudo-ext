@@ -2,7 +2,7 @@ name: Resumen diario
 
 on:
   schedule:
-    # 07:52 hora Argentina (UTC-3): resumen del día anterior.
+    # 07:52 hora Argentina (UTC-3), antes de abrir: foto de stock + resumen del día anterior.
     - cron: "52 10 * * *"
   workflow_dispatch:
     inputs:
@@ -10,18 +10,50 @@ on:
         description: "Fecha AAAA-MM-DD (vacío = ayer)"
         required: false
 
+permissions:
+  contents: write  # para guardar las fotos de stock en la rama "datos"
+
+concurrency: resumen-diario
+
 jobs:
   resumen:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      FUDO_API_KEY: ${{ secrets.FUDO_API_KEY }}
+      FUDO_API_SECRET: ${{ secrets.FUDO_API_SECRET }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      FUDO_LOCAL_NAME: ${{ vars.FUDO_LOCAL_NAME || 'Los Hornos Belgrano' }}
+      DAY: ${{ inputs.day }}
     steps:
       - uses: actions/checkout@v4
-      - name: Generar y enviar resumen
-        env:
-          FUDO_API_KEY: ${{ secrets.FUDO_API_KEY }}
-          FUDO_API_SECRET: ${{ secrets.FUDO_API_SECRET }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          FUDO_LOCAL_NAME: ${{ vars.FUDO_LOCAL_NAME || 'Los Hornos Belgrano' }}
-          DAY: ${{ inputs.day }}
+
+      - name: Preparar rama de datos
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin datos >/dev/null; then
+            git fetch --depth=1 origin datos:datos
+            git worktree add datos datos
+          else
+            git worktree add --orphan -b datos datos
+          fi
+
+      - name: Foto de stock
+        # Solo en la corrida programada: una corrida manual de otra fecha no es "apertura".
+        if: github.event_name == 'schedule' || inputs.day == ''
+        run: |
+          python3 scripts/stock_snapshot.py --dir datos/stock
+          cd datos
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Foto de stock $(TZ=America/Argentina/Buenos_Aires date +%F)"
+            git push origin datos
+          fi
+
+      - name: Resumen del día
         run: python3 scripts/daily_summary.py $DAY --telegram
+
+      - name: Conciliación de stock
+        run: python3 scripts/stock_reconcile.py $DAY --dir datos/stock --telegram
