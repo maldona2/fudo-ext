@@ -325,7 +325,10 @@ export function CountPage() {
                 );
               }
               return (
-                <li key={p.id} className="flex items-center gap-3 px-3 py-2">
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-center gap-3 px-3 py-2"
+                >
                   <label htmlFor={`q-${p.id}`} className="flex-1 text-base">
                     {p.name}
                     {p.code && (
@@ -346,6 +349,31 @@ export function CountPage() {
                       setDraft((d) => ({ ...d, [p.id]: e.target.value }))
                     }
                   />
+                  {packValue.trim() !== '' && (
+                    <div className="w-full space-y-2 rounded-md bg-muted p-3">
+                      <p className="text-sm">
+                        Ya no hay un bulto configurado para este producto. Tu
+                        borrador tiene {packValue} bulto(s) que no podemos
+                        convertir a unidades. Descartalos y anotá esas unidades
+                        en la cantidad; las sueltas que ingresaste se conservan.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-12"
+                        aria-label={`Descartar bultos de ${p.name}`}
+                        onClick={() =>
+                          setPacks((d) => {
+                            const remaining = { ...d };
+                            delete remaining[p.id];
+                            return remaining;
+                          })
+                        }
+                      >
+                        Descartar bultos del borrador
+                      </Button>
+                    </div>
+                  )}
                 </li>
               );
             })}

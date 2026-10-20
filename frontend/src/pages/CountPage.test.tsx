@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 const create = vi.fn();
+let cocaPack: { units: number; label: string } | null = null;
 
 vi.mock('@/lib/api', () => ({
   products: {
@@ -15,7 +16,7 @@ vi.mock('@/lib/api', () => ({
         name: 'Coca 1.5L',
         code: '7',
         category: 'Bebidas',
-        pack: { units: 6, label: 'fardo' },
+        pack: cocaPack,
       },
     ],
   },
@@ -38,6 +39,7 @@ import { CountPage } from './CountPage';
 
 describe('CountPage', () => {
   beforeEach(() => {
+    cocaPack = { units: 6, label: 'fardo' };
     localStorage.clear();
     create.mockReset();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -225,5 +227,44 @@ describe('CountPage', () => {
     );
     expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('');
     expect(screen.getByText('= 5 u.')).toBeInTheDocument();
+  });
+
+  it('lets the counter discard stale packs explicitly and submit preserved loose units', async () => {
+    cocaPack = null;
+    create.mockResolvedValue({ id: 'c1' });
+    localStorage.setItem('count-draft-packs', '{"30":"3"}');
+    localStorage.setItem('count-draft', '{"30":"2"}');
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+
+    const loose = await screen.findByRole('textbox', { name: /Coca 1.5L/ });
+    expect(loose).toHaveValue('2');
+    expect(
+      screen.getByText(/Ya no hay un bulto configurado/)
+    ).toHaveTextContent('3');
+    expect(localStorage.getItem('count-draft-packs')).toBe('{"30":"3"}');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+    expect(create).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Descartar bultos de Coca 1.5L' })
+    );
+    expect(loose).toHaveValue('2');
+    expect(localStorage.getItem('count-draft-packs')).toBe('{}');
+    expect(localStorage.getItem('count-draft')).toBe('{"30":"2"}');
+    expect(
+      screen.queryByText(/Ya no hay un bulto configurado/)
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+    expect(create).toHaveBeenCalledWith({
+      entries: [{ productId: '30', counted: 2 }],
+    });
   });
 });
