@@ -34,3 +34,15 @@ y productos con stock a revisar (negativo, bajo el mínimo, o en 0 con ventas en
 
 Limitaciones: el stock es el **actual** (la API no da el stock histórico) y el contado del
 arqueo no está en la API.
+
+## Envío automático (GitHub Actions)
+
+`.github/workflows/resumen-diario.yml` corre todos los días a las 07:52 (hora Argentina) y
+manda por Telegram el resumen del día anterior. También se puede correr a mano desde
+**Actions → Resumen diario → Run workflow**, opcionalmente con una fecha.
+
+Secretos necesarios (Settings → Secrets and variables → Actions):
+`FUDO_API_KEY`, `FUDO_API_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+Variable opcional: `FUDO_LOCAL_NAME` (nombre que aparece en el título).
+
+Nota: GitHub solo ejecuta tareas programadas desde la rama por defecto del repo.

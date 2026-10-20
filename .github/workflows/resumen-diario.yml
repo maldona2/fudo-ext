@@ -1,0 +1,27 @@
+name: Resumen diario
+
+on:
+  schedule:
+    # 07:52 hora Argentina (UTC-3): resumen del día anterior.
+    - cron: "52 10 * * *"
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "Fecha AAAA-MM-DD (vacío = ayer)"
+        required: false
+
+jobs:
+  resumen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar y enviar resumen
+        env:
+          FUDO_API_KEY: ${{ secrets.FUDO_API_KEY }}
+          FUDO_API_SECRET: ${{ secrets.FUDO_API_SECRET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FUDO_LOCAL_NAME: ${{ vars.FUDO_LOCAL_NAME || 'Los Hornos Belgrano' }}
+          DAY: ${{ inputs.day }}
+        run: python3 scripts/daily_summary.py $DAY --telegram
