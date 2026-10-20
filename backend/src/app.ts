@@ -1,66 +1,68 @@
-import 'dotenv/config';
 import express, { Express } from 'express';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { errorHandler } from './utils/errorHandler.js';
-import pool from './db/connect.js';
 import logger from './utils/logger.js';
+import type { Services } from './domain/types.js';
+import { authRoutes } from './routes/auth.js';
+import { usersRoutes } from './routes/users.js';
+import { productsRoutes } from './routes/products.js';
+import { countsRoutes, reportsRoutes } from './routes/counts.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+export function createApp(services: Services): Express {
+  const app: Express = express();
 
-const app: Express = express();
+  // Railway (and nginx in front) terminate TLS: trust one proxy hop so
+  // req.ip and secure cookies work.
+  app.set('trust proxy', 1);
 
-// CORS configuration
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
-].filter(Boolean);
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+  ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else if (
-        process.env.NODE_ENV === 'development' &&
-        origin.startsWith('http://localhost:')
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else if (
+          process.env.NODE_ENV === 'development' &&
+          origin.startsWith('http://localhost:')
+        ) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+  );
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
-// Serve static files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+  app.get('/api/health', async (_req, res) => {
+    try {
+      await services.health();
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch (err) {
+      logger.error({ err }, 'Health check DB query failed');
+      res
+        .status(503)
+        .json({ status: 'error', timestamp: new Date().toISOString() });
+    }
+  });
 
-// Health check route
-app.get('/api/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  } catch (err) {
-    logger.error({ err }, 'Health check DB query failed');
-    res
-      .status(503)
-      .json({ status: 'error', timestamp: new Date().toISOString() });
-  }
-});
+  app.use('/api/auth', authRoutes(services));
+  app.use('/api/users', usersRoutes(services));
+  app.use('/api/products', productsRoutes(services));
+  app.use('/api/counts', countsRoutes(services));
+  app.use('/api/reports', reportsRoutes(services));
 
-// API routes (add your routes here)
-// app.use('/api/example', exampleRoutes);
+  // Error handler (must be last)
+  app.use(errorHandler);
 
-// Error handler (must be last)
-app.use(errorHandler);
-
-export default app;
+  return app;
+}

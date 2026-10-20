@@ -1,0 +1,64 @@
+import { createProductsService } from './products.js';
+import type { FudoProduct } from './fudoData.js';
+
+const product = (
+  id: string,
+  name: string,
+  categoryId: string | null
+): FudoProduct => ({
+  id,
+  name,
+  code: null,
+  categoryId,
+  cost: 100,
+  price: 200,
+  stock: 5,
+});
+
+describe('products service', () => {
+  it('lists products sorted by category then name, with the category name', async () => {
+    const service = createProductsService({
+      products: async () => [
+        product('2', 'Pollo', '6'),
+        product('3', 'Coca 1.5L', '7'),
+        product('1', 'Carne suave', '6'),
+        product('4', 'Sin categoría', null),
+      ],
+      categories: async () =>
+        new Map([
+          ['6', 'Empanadas'],
+          ['7', 'Bebidas'],
+        ]),
+    });
+
+    const list = await service.listForCount();
+
+    expect(list.map((p) => [p.category, p.name])).toEqual([
+      ['Bebidas', 'Coca 1.5L'],
+      ['Empanadas', 'Carne suave'],
+      ['Empanadas', 'Pollo'],
+      [null, 'Sin categoría'],
+    ]);
+  });
+
+  it('reuses the FUDO answer for 5 minutes', async () => {
+    let calls = 0;
+    let now = 0;
+    const service = createProductsService({
+      products: async () => {
+        calls += 1;
+        return [product('1', 'Carne suave', null)];
+      },
+      categories: async () => new Map(),
+      now: () => now,
+    });
+
+    await service.listForCount();
+    now = 4 * 60 * 1000;
+    await service.listForCount();
+    now = 6 * 60 * 1000;
+    await service.listForCount();
+
+    expect(calls).toBe(2);
+  });
+});
