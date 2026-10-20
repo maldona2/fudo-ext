@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { draftToEntries, parseQuantity } from './countDraft';
+import { draftToEntries, parsePacks, parseQuantity } from './countDraft';
 
 describe('parseQuantity', () => {
   it('accepts integers and decimals with comma or dot', () => {
@@ -36,5 +36,62 @@ describe('draftToEntries', () => {
       entries: [{ productId: '15', counted: 3 }],
       invalid: ['14'],
     });
+  });
+});
+
+describe('parsePacks', () => {
+  it('accepts only non-negative whole closed packs', () => {
+    expect(parsePacks(' 3 ')).toBe(3);
+    expect(parsePacks('0')).toBe(0);
+    expect(parsePacks(' ')).toBeNull();
+    for (const value of ['1,5', '1.5', '-1', 'abc', '9'.repeat(400)]) {
+      expect(parsePacks(value)).toBeNaN();
+    }
+  });
+});
+
+describe('draftToEntries with packs', () => {
+  const sizes = new Map([['30', 12]]);
+
+  it('adds closed packs times units per pack to the loose units', () => {
+    expect(draftToEntries({ '30': '5' }, { '30': '3' }, sizes)).toEqual({
+      entries: [{ productId: '30', counted: 41 }],
+      invalid: [],
+    });
+  });
+
+  it('counts a product with only packs typed', () => {
+    expect(draftToEntries({ '30': '' }, { '30': '2' }, sizes).entries).toEqual([
+      { productId: '30', counted: 24 },
+    ]);
+    expect(draftToEntries({}, { '30': '0' }, sizes).entries).toEqual([
+      { productId: '30', counted: 0 },
+    ]);
+  });
+
+  it('marks fractional or non numeric packs as invalid', () => {
+    for (const value of ['1,5', 'abc']) {
+      expect(draftToEntries({ '30': '5' }, { '30': value }, sizes)).toEqual({
+        entries: [],
+        invalid: ['30'],
+      });
+    }
+  });
+
+  it('rejects pack counts when the product has no pack anymore', () => {
+    expect(draftToEntries({ '30': '5' }, { '30': '3' })).toEqual({
+      entries: [],
+      invalid: ['30'],
+    });
+  });
+
+  it('rounds the total to three decimals and skips untouched products', () => {
+    expect(
+      draftToEntries(
+        { '30': '0,1236', '14': '' },
+        { '30': '1', '14': '' },
+        sizes
+      )
+    ).toEqual({ entries: [{ productId: '30', counted: 12.124 }], invalid: [] });
   });
 });

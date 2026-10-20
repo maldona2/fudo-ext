@@ -15,7 +15,9 @@ import { normalize, plural } from '@/lib/format';
 import {
   draftToEntries,
   parseQuantity,
+  parsePacks,
   type CountDraft,
+  type PackDraft,
 } from '@/lib/countDraft';
 import type { CountList, CountProduct } from '@/types/api';
 import { cn } from '@/lib/utils';
@@ -23,6 +25,7 @@ import { cn } from '@/lib/utils';
 // The draft survives a reload or a locked phone. It only holds what was
 // typed (no system figures), so browser storage is acceptable here.
 const DRAFT_KEY = 'count-draft';
+const PACKS_KEY = 'count-draft-packs';
 const LIST_KEY = 'count-list';
 
 const loadListId = (): string | null => {
@@ -33,9 +36,9 @@ const loadListId = (): string | null => {
   }
 };
 
-const loadDraft = (): CountDraft => {
+const loadDraft = (key = DRAFT_KEY): CountDraft => {
   try {
-    return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') as CountDraft;
+    return JSON.parse(localStorage.getItem(key) ?? '{}') as CountDraft;
   } catch {
     return {};
   }
@@ -47,7 +50,8 @@ export function CountPage() {
   const [list, setList] = useState<CountProduct[] | null>(null);
   const [lists, setLists] = useState<CountList[]>([]);
   const [listId, setListId] = useState<string | null>(loadListId);
-  const [draft, setDraft] = useState<CountDraft>(loadDraft);
+  const [draft, setDraft] = useState<CountDraft>(() => loadDraft());
+  const [packs, setPacks] = useState<PackDraft>(() => loadDraft(PACKS_KEY));
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -86,6 +90,24 @@ export function CountPage() {
     }
   }, [draft]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(PACKS_KEY, JSON.stringify(packs));
+    } catch {
+      // storage full or disabled: the draft just will not survive a reload
+    }
+  }, [packs]);
+
+  const unitsPerPack = useMemo(
+    () =>
+      new Map(
+        (list ?? []).flatMap((p) =>
+          p.pack ? [[p.id, p.pack.units] as const] : []
+        )
+      ),
+    [list]
+  );
+
   const groups = useMemo(() => {
     const q = normalize(query.trim());
     const visible = (list ?? []).filter(
@@ -107,7 +129,13 @@ export function CountPage() {
       ? Object.fromEntries(
           Object.entries(draft).filter(([id]) => scope.has(id))
         )
-      : draft
+      : draft,
+    scope
+      ? Object.fromEntries(
+          Object.entries(packs).filter(([id]) => scope.has(id))
+        )
+      : packs,
+    unitsPerPack
   );
 
   const save = async () => {
@@ -131,6 +159,7 @@ export function CountPage() {
         scope && listId ? { entries, listId } : { entries }
       );
       setDraft({});
+      setPacks({});
       if (user?.role === 'owner') {
         navigate(`/panel/conteos/${result.id}`);
       } else {
@@ -217,7 +246,84 @@ export function CountPage() {
           <ul className="divide-y rounded-lg border bg-background">
             {items.map((p) => {
               const value = draft[p.id] ?? '';
-              const bad = Number.isNaN(parseQuantity(value) ?? 0);
+              const packValue = packs[p.id] ?? '';
+              const bad = invalid.includes(p.id);
+              const total = draftToEntries(
+                { [p.id]: value },
+                { [p.id]: packValue },
+                unitsPerPack
+              ).entries[0]?.counted;
+              const packLabel = p.pack
+                ? `${p.pack.label.charAt(0).toUpperCase()}${p.pack.label.slice(1)}s`
+                : '';
+              if (p.pack) {
+                const closed = parsePacks(packValue);
+                return (
+                  <li key={p.id} className="space-y-2 px-3 py-3">
+                    <p className="text-base">
+                      {p.name}
+                      {p.code && (
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          #{p.code}
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="min-w-0 flex-1 space-y-1">
+                        <span className="text-sm">{packLabel}</span>
+                        <Input
+                          aria-label={`${packLabel} de ${p.name}`}
+                          inputMode="numeric"
+                          autoComplete="off"
+                          placeholder="—"
+                          aria-invalid={Number.isNaN(closed) || undefined}
+                          className="h-12 text-center text-lg"
+                          value={packValue}
+                          onChange={(e) =>
+                            setPacks((d) => ({ ...d, [p.id]: e.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="min-w-0 flex-1 space-y-1">
+                        <span className="text-sm">Sueltas</span>
+                        <Input
+                          aria-label={`Sueltas de ${p.name}`}
+                          inputMode="decimal"
+                          autoComplete="off"
+                          placeholder="—"
+                          aria-invalid={
+                            Number.isNaN(parseQuantity(value)) || undefined
+                          }
+                          className="h-12 text-center text-lg"
+                          value={value}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, [p.id]: e.target.value }))
+                          }
+                        />
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-12"
+                        disabled={Number.isNaN(closed)}
+                        onClick={() =>
+                          setPacks((d) => ({
+                            ...d,
+                            [p.id]: String(
+                              (parsePacks(d[p.id] ?? '') ?? 0) + 1
+                            ),
+                          }))
+                        }
+                      >
+                        +1 {p.pack.label}
+                      </Button>
+                    </div>
+                    {total !== undefined && (
+                      <p className="text-sm font-semibold">= {total} u.</p>
+                    )}
+                  </li>
+                );
+              }
               return (
                 <li key={p.id} className="flex items-center gap-3 px-3 py-2">
                   <label htmlFor={`q-${p.id}`} className="flex-1 text-base">

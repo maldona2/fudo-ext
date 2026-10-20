@@ -10,7 +10,13 @@ vi.mock('@/lib/api', () => ({
     listForCount: async () => [
       { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
       { id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
-      { id: '30', name: 'Coca 1.5L', code: '7', category: 'Bebidas' },
+      {
+        id: '30',
+        name: 'Coca 1.5L',
+        code: '7',
+        category: 'Bebidas',
+        pack: { units: 6, label: 'fardo' },
+      },
     ],
   },
   countLists: {
@@ -130,5 +136,94 @@ describe('CountPage', () => {
       entries: [{ productId: '16', counted: 3 }],
       listId: 'list-1',
     });
+  });
+
+  it('shows packs and loose fields for products with a pack and sends the total', async () => {
+    create.mockResolvedValue({ id: 'c1' });
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    await userEvent.type(
+      await screen.findByLabelText('Fardos de Coca 1.5L'),
+      '3'
+    );
+    await userEvent.type(screen.getByLabelText('Sueltas de Coca 1.5L'), '2');
+    expect(screen.getByText('= 20 u.')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+    expect(create).toHaveBeenCalledWith({
+      entries: [{ productId: '30', counted: 20 }],
+    });
+    expect(localStorage.getItem('count-draft-packs')).toBe('{}');
+    expect(localStorage.getItem('count-draft')).toBe('{}');
+  });
+
+  it('adds one pack with the +1 button', async () => {
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    const button = await screen.findByRole('button', { name: '+1 fardo' });
+    await userEvent.click(button);
+    await userEvent.click(button);
+    expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('2');
+    expect(screen.getByText('= 12 u.')).toBeInTheDocument();
+  });
+
+  it('keeps packs typed after a reload', async () => {
+    const first = render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    await userEvent.type(
+      await screen.findByLabelText('Fardos de Coca 1.5L'),
+      '3'
+    );
+    expect(localStorage.getItem('count-draft-packs')).toBe('{"30":"3"}');
+    first.unmount();
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByLabelText('Fardos de Coca 1.5L')).toHaveValue(
+      '3'
+    );
+  });
+
+  it('marks invalid packs and blocks saving without displaying a false total', async () => {
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    const packs = await screen.findByLabelText('Fardos de Coca 1.5L');
+    await userEvent.type(packs, '1,5');
+    expect(packs).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByText(/= .* u\./)).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar conteo' })
+    );
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('no se entienden');
+  });
+
+  it('keeps old loose drafts readable for a product that now has a pack', async () => {
+    localStorage.setItem('count-draft', '{"30":"5"}');
+    render(
+      <MemoryRouter>
+        <CountPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByLabelText('Sueltas de Coca 1.5L')).toHaveValue(
+      '5'
+    );
+    expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('');
+    expect(screen.getByText('= 5 u.')).toBeInTheDocument();
   });
 });
