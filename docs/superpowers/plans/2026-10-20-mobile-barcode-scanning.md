@@ -60,7 +60,7 @@ El cajero abre “Escanear”, apunta, obtiene una coincidencia y vuelve al form
 
 **Interfaces:** En backend y frontend: `normalizeBarcode(raw: string): string | null`. Añadir `ProductBarcode = { productId: string; barcode: string }` y `CountProduct.barcodes: string[]`. La frontera cliente tolera `barcodes` ausente como `[]` durante el despliegue, pero el contrato del servidor nuevo siempre lo emite.
 
-- [ ] **Step 1:** Escribir tests con estas aserciones en ambos módulos; el mismo conjunto fija el contrato entre paquetes sin crear un workspace compartido para una función pequeña.
+- [x] **Step 1:** Escribir tests con estas aserciones en ambos módulos; el mismo conjunto fija el contrato entre paquetes sin crear un workspace compartido para una función pequeña.
 
 ```ts
 expect(normalizeBarcode(' 2000000000015 ')).toBe('2000000000015');
@@ -74,10 +74,10 @@ expect(normalizeBarcode('')).toBeNull();
 ```
 
 Añadir longitudes 7/9/11/14, letras y entrada de más de 64 caracteres: inválidas. Solo quitar espacios externos; nunca convertir todo el código a Number.
-- [ ] **Step 2:** Ejecutar `npm --prefix backend run test -- --runInBand --runTestsByPath src/domain/barcodes.test.ts` y `npm --prefix frontend run test -- src/lib/barcodes.test.ts`; esperar fallo por función ausente.
-- [ ] **Step 3:** Implementar validación del dígito de control, canonicalización y tipos. Actualizar fixtures de productos con `barcodes: []`.
-- [ ] **Step 4:** Repetir ambos comandos; esperar PASS.
-- [ ] **Step 5:** Commit `feat: define retail barcode contract` con los archivos de esta tarea.
+- [x] **Step 2:** Ejecutar `npm --prefix backend run test -- --runInBand --runTestsByPath src/domain/barcodes.test.ts` y `npm --prefix frontend run test -- src/lib/barcodes.test.ts`; esperar fallo por función ausente.
+- [x] **Step 3:** Implementar validación del dígito de control, canonicalización y tipos. Actualizar fixtures de productos con `barcodes: []`.
+- [x] **Step 4:** Repetir ambos comandos; esperar PASS.
+- [x] **Step 5:** Commit `feat: define retail barcode contract` con los archivos de esta tarea.
 
 ## Task 2: Asociaciones persistentes y API protegida
 
@@ -90,11 +90,11 @@ Añadir longitudes 7/9/11/14, letras y entrada de más de 64 caracteres: inváli
 - `DELETE /api/product-barcodes/:productId/:barcode` -> 204; asociación inexistente -> 404. Requieren dueño; sin sesión -> 401, cajero -> 403.
 - `GET /api/products` sigue autenticado y agrega únicamente `barcodes: string[]` al DTO ciego.
 
-- [ ] **Step 1:** Tests de servicio/HTTP: entrada inválida o claves extra ->400; acceso anónimo->401; cajero->403; producto no contable->400; asignación repetida al mismo producto->204; mismo código a otro producto->409; eliminar inexistente->404. Para el conflicto UPC/EAN, guardar `036000291452` en A y rechazar `0036000291452` en B. Fallo de DB/FUDO debe conservar error genérico sin filtrar datos internos. GET no contiene stock, costo ni diferencias.
-- [ ] **Step 2:** Ejecutar `npm --prefix backend run test -- --runInBand`; los tests nuevos deben fallar por contratos ausentes.
-- [ ] **Step 3:** Crear tabla con `barcode TEXT PRIMARY KEY`, `product_id TEXT NOT NULL` con regex de id, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` e índice por producto. CHECK de código canónico de 8 o 13 dígitos. SQL parametrizado. INSERT con conflicto que nunca actualiza el dueño del código; resolver resultado con una lectura posterior. DELETE exige ambos valores. Integrar servicio/rutas y leer asociaciones en cada GET de catálogo, fuera del cache de FUDO de cinco minutos. No devolver asociaciones de productos ya no contables.
-- [ ] **Step 4:** Prueba real de PostgreSQL con `BARCODE_TEST_DATABASE_URL` apuntando exclusivamente a DB de pruebas y schema aleatorio, siguiendo el aislamiento del test de conteos: dos asignaciones concurrentes a distintos productos dejan un solo dueño; la otra devuelve conflicto. Verificar idempotencia, eliminación específica y migración en DB vacía/con datos existentes. No usar `DATABASE_URL` productivo. Tests omitidos por falta de DB deben reportarse como pendientes, no aprobados.
-- [ ] **Step 5:** Repetir suite backend y test de integración con DB aislada; esperar PASS. Commit `feat: persist protected product barcode mappings`.
+- [x] **Step 1:** Tests de servicio/HTTP: entrada inválida o claves extra ->400; acceso anónimo->401; cajero->403; producto no contable->400; asignación repetida al mismo producto->204; mismo código a otro producto->409; eliminar inexistente->404. Para el conflicto UPC/EAN, guardar `036000291452` en A y rechazar `0036000291452` en B. Fallo de DB/FUDO debe conservar error genérico sin filtrar datos internos. GET no contiene stock, costo ni diferencias.
+- [x] **Step 2:** Ejecutar `npm --prefix backend run test -- --runInBand`; los tests nuevos deben fallar por contratos ausentes.
+- [x] **Step 3:** Crear tabla con `barcode TEXT PRIMARY KEY`, `product_id TEXT NOT NULL` con regex de id, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` e índice por producto. CHECK de código canónico de 8 o 13 dígitos. SQL parametrizado. INSERT con conflicto que nunca actualiza el dueño del código; resolver resultado con una lectura posterior. DELETE exige ambos valores. Integrar servicio/rutas y leer asociaciones en cada GET de catálogo, fuera del cache de FUDO de cinco minutos. No devolver asociaciones de productos ya no contables.
+- [x] **Step 4:** Prueba real de PostgreSQL con `BARCODE_TEST_DATABASE_URL` apuntando exclusivamente a DB de pruebas y schema aleatorio, siguiendo el aislamiento del test de conteos: dos asignaciones concurrentes a distintos productos dejan un solo dueño; la otra devuelve conflicto. Verificar idempotencia, eliminación específica y migración en DB vacía/con datos existentes. No usar `DATABASE_URL` productivo. Tests omitidos por falta de DB deben reportarse como pendientes, no aprobados.
+- [x] **Step 5:** Repetir suite backend y test de integración con DB aislada; esperar PASS. Commit `feat: persist protected product barcode mappings`.
 
 ## Task 3: Escáner de cámara reutilizable
 
@@ -105,11 +105,11 @@ Añadir longitudes 7/9/11/14, letras y entrada de más de 64 caracteres: inváli
 - `ScannerError = 'permission' | 'unavailable' | 'insecure' | 'failure'`.
 - `<BarcodeScanner onDetected={(raw: string) => void} onClose={() => void} />`. Montado únicamente al pulsar Escanear; cerrar desmonta. Un resultado por apertura.
 
-- [ ] **Step 1:** Tests con streams simulados: permiso rechazado ofrece búsqueda manual; cámara ausente/HTTP inseguro tienen aviso; cerrar/desmontar libera todos los tracks; cancelar antes de resolverse getUserMedia libera el stream tardío; detecciones repetidas emiten un único resultado; document hidden/pagehide detienen cámara y requieren “Reintentar” al volver. Ningún callback posterior al cierre cambia la UI.
-- [ ] **Step 2:** `npm --prefix frontend run test -- src/lib/barcodeScanner.test.ts src/components/BarcodeScanner.test.tsx`; esperar FAIL por módulos ausentes.
-- [ ] **Step 3:** Instalar versiones exactas compatibles de ZXing y registrar el lockfile. Justificación de dependencia: la API nativa no tiene disponibilidad suficiente para los dos navegadores objetivo. Cargar decoder con import dinámico. Obtener stream con `audio:false` y `video:{facingMode:{ideal:'environment'}}`, pasarlo al lector limitado a EAN_13/EAN_8/UPC_A. Usar video `muted`, `autoPlay`, `playsInline`. Detener lectura y tracks al primer resultado, abortar, ocultar o desmontar. No tratar frames sin código como error fatal. Ignorar resultados tardíos mediante estado cancelado/generación de sesión.
-- [ ] **Step 4:** Implementar interfaz accesible con marco de cámara, instrucciones, “Cerrar”, “Reintentar” y salida a búsqueda manual; controles de al menos 44 px. Mensajes propios en español, nunca errores crudos del navegador. Si se monta como modal, usar primitivas accesibles existentes con restauración de foco.
-- [ ] **Step 5:** Repetir tests; esperar PASS. Commit `feat: add cancellable mobile barcode scanner`.
+- [x] **Step 1:** Tests con streams simulados: permiso rechazado ofrece búsqueda manual; cámara ausente/HTTP inseguro tienen aviso; cerrar/desmontar libera todos los tracks; cancelar antes de resolverse getUserMedia libera el stream tardío; detecciones repetidas emiten un único resultado; document hidden/pagehide detienen cámara y requieren “Reintentar” al volver. Ningún callback posterior al cierre cambia la UI.
+- [x] **Step 2:** `npm --prefix frontend run test -- src/lib/barcodeScanner.test.ts src/components/BarcodeScanner.test.tsx`; esperar FAIL por módulos ausentes.
+- [x] **Step 3:** Instalar versiones exactas compatibles de ZXing y registrar el lockfile. Justificación de dependencia: la API nativa no tiene disponibilidad suficiente para los dos navegadores objetivo. Cargar decoder con import dinámico. Obtener stream con `audio:false` y `video:{facingMode:{ideal:'environment'}}`, pasarlo al lector limitado a EAN_13/EAN_8/UPC_A. Usar video `muted`, `autoPlay`, `playsInline`. Detener lectura y tracks al primer resultado, abortar, ocultar o desmontar. No tratar frames sin código como error fatal. Ignorar resultados tardíos mediante estado cancelado/generación de sesión.
+- [x] **Step 4:** Implementar interfaz accesible con marco de cámara, instrucciones, “Cerrar”, “Reintentar” y salida a búsqueda manual; controles de al menos 44 px. Mensajes propios en español, nunca errores crudos del navegador. Si se monta como modal, usar primitivas accesibles existentes con restauración de foco.
+- [x] **Step 5:** Repetir tests; esperar PASS. Commit `feat: add cancellable mobile barcode scanner`.
 
 ## Task 4: Configuración del dueño
 
@@ -117,10 +117,10 @@ Añadir longitudes 7/9/11/14, letras y entrada de más de 64 caracteres: inváli
 
 **Interfaces:** `productBarcodes.save(value: ProductBarcode): Promise<void>` y `productBarcodes.remove(value: ProductBarcode): Promise<void>` a través del cliente compartido. Ruta `/codigos` protegida por owner. Consume catálogo de tarea 2 y escáner de tarea 3.
 
-- [ ] **Step 1:** Tests: buscar producto, ingresar/escanear un código, revisar nombre/código y guardar; refrescar muestra asociación; borrar elimina solo esa asociación; conflicto409 muestra “Este código ya está asociado a otro producto.”; inválido no envía petición; cajero no tiene enlace ni acceso. Un error deja valores disponibles para corregir/reintentar.
-- [ ] **Step 2:** `npm --prefix frontend run test -- src/pages/BarcodesPage.test.tsx`; esperar FAIL.
-- [ ] **Step 3:** Implementar pantalla “Códigos de barras” con búsqueda, selección explícita de producto, asociaciones actuales y campo manual/escaneo. Guardado requiere confirmación visual del nombre y código; no asignar al detectar automáticamente. Recargar catálogo después de mutaciones. Resolver409 específicamente en este flujo, sin reutilizar el mensaje actual “Ya existe un usuario con ese email.”
-- [ ] **Step 4:** Repetir tests; esperar PASS. Commit `feat: manage barcode associations as owner`.
+- [x] **Step 1:** Tests: buscar producto, ingresar/escanear un código, revisar nombre/código y guardar; refrescar muestra asociación; borrar elimina solo esa asociación; conflicto409 muestra “Este código ya está asociado a otro producto.”; inválido no envía petición; cajero no tiene enlace ni acceso. Un error deja valores disponibles para corregir/reintentar.
+- [x] **Step 2:** `npm --prefix frontend run test -- src/pages/BarcodesPage.test.tsx`; esperar FAIL.
+- [x] **Step 3:** Implementar pantalla “Códigos de barras” con búsqueda, selección explícita de producto, asociaciones actuales y campo manual/escaneo. Guardado requiere confirmación visual del nombre y código; no asignar al detectar automáticamente. Recargar catálogo después de mutaciones. Resolver409 específicamente en este flujo, sin reutilizar el mensaje actual “Ya existe un usuario con ese email.”
+- [x] **Step 4:** Repetir tests; esperar PASS. Commit `feat: manage barcode associations as owner`.
 
 ## Task 5: Escaneo dentro del conteo y recuento
 
@@ -128,11 +128,11 @@ Añadir longitudes 7/9/11/14, letras y entrada de más de 64 caracteres: inváli
 
 **Interfaces:** `resolveBarcode(raw: string, products: CountProduct[], allowedIds: ReadonlySet<string> | null): {kind:'match'; productId:string} | {kind:'invalid'|'unknown'|'ambiguous'|'out-of-scope'}`. Buscar coincidencias en todo el catálogo antes de comprobar alcance; nunca resolver por `code` interno ni nombre. Normalizar cada asociación de forma defensiva; cero coincidencias unknown, varias ambiguous. `allowedIds` es lista seleccionada o `recount.ids`; null permite catálogo completo.
 
-- [ ] **Step 1:** Tests unitarios con códigos A/B: match exacto, UPC/EAN equivalentes, desconocido, duplicado ambiguo, fuera de lista y fuera de recuento. Tests de pantalla: escaneo repetido no aumenta cantidades; formulario existente conserva packs/sueltas; búsqueda previa no oculta el producto detectado; cancelar conserva borrador; escanear fuera de alcance no modifica entries/listId/checkId. Producto válido desplaza y enfoca su cantidad; no necesita abrir teclado automáticamente en iOS para aprobar.
-- [ ] **Step 2:** `npm --prefix frontend run test -- src/lib/barcodes.test.ts src/pages/CountPage.test.tsx`; esperar FAIL en casos nuevos.
-- [ ] **Step 3:** Añadir “Escanear” cuando catálogo está cargado y no se está guardando. Al match cerrar cámara, limpiar búsqueda, resaltar brevemente el producto y enfocar cantidad (sueltas si tiene pack). No ordenar de nuevo ni sumar. Todos los campos siguen manejados por el borrador existente. En unknown/ambiguous/out-of-scope mostrar mensaje neutral y permitir volver a escanear o buscar; no cambiar lista automáticamente. Si una asociación fue editada desde otra sesión, recargar la página para obtener el catálogo nuevo; no prometer sincronización en vivo.
-- [ ] **Step 4:** Prueba de regresión del flujo completo: primer conteo solicita recuento, campos requeridos quedan vacíos, se escanea cada producto permitido, se completa y se guarda manteniendo las entradas originales no recuentadas. Assert ausencia de stock esperado/diferencias/primer conteo en toda la UI del cajero y payload ciego del servidor.
-- [ ] **Step 5:** Repetir tests frontend y `npm --prefix backend run test -- --runInBand`; esperar PASS. Commit `feat: scan products during blind stock counts`.
+- [x] **Step 1:** Tests unitarios con códigos A/B: match exacto, UPC/EAN equivalentes, desconocido, duplicado ambiguo, fuera de lista y fuera de recuento. Tests de pantalla: escaneo repetido no aumenta cantidades; formulario existente conserva packs/sueltas; búsqueda previa no oculta el producto detectado; cancelar conserva borrador; escanear fuera de alcance no modifica entries/listId/checkId. Producto válido desplaza y enfoca su cantidad; no necesita abrir teclado automáticamente en iOS para aprobar.
+- [x] **Step 2:** `npm --prefix frontend run test -- src/lib/barcodes.test.ts src/pages/CountPage.test.tsx`; esperar FAIL en casos nuevos.
+- [x] **Step 3:** Añadir “Escanear” cuando catálogo está cargado y no se está guardando. Al match cerrar cámara, limpiar búsqueda, resaltar brevemente el producto y enfocar cantidad (sueltas si tiene pack). No ordenar de nuevo ni sumar. Todos los campos siguen manejados por el borrador existente. En unknown/ambiguous/out-of-scope mostrar mensaje neutral y permitir volver a escanear o buscar; no cambiar lista automáticamente. Si una asociación fue editada desde otra sesión, recargar la página para obtener el catálogo nuevo; no prometer sincronización en vivo.
+- [x] **Step 4:** Prueba de regresión del flujo completo: primer conteo solicita recuento, campos requeridos quedan vacíos, se escanea cada producto permitido, se completa y se guarda manteniendo las entradas originales no recuentadas. Assert ausencia de stock esperado/diferencias/primer conteo en toda la UI del cajero y payload ciego del servidor.
+- [x] **Step 5:** Repetir tests frontend y `npm --prefix backend run test -- --runInBand`; esperar PASS. Commit `feat: scan products during blind stock counts`.
 
 ## Task 6: Códigos reproducibles y aceptación en teléfonos
 
@@ -140,12 +140,12 @@ Añadir longitudes 7/9/11/14, letras y entrada de más de 64 caracteres: inváli
 
 **Interfaces:** Script `npm --prefix frontend run fixtures:barcodes` genera PNG y hoja HTML estática desde el mismo manifiesto de cuatro códigos EAN-13: A=`2000000000015`, B=`2000000000022`, fuera de lista=`2000000000039`, desconocido=`2000000000046`. Son etiquetas sintéticas “PRUEBA A/B/C/D”, no códigos comerciales de Coca-Cola u otra marca. La hoja es local/documental, no una ruta pública productiva.
 
-- [ ] **Step 1:** Test de decodificación real: cargar cada PNG como luminancia con `pngjs` (dependencia dev junto con `@types/pngjs`) y usar `@zxing/library` sin simular decoder; resultado debe igualar exactamente su código del manifiesto. Una imagen blanca debe producir “no encontrado”. Declarar dependencias dev necesarias con versiones exactas. `normalizeBarcode` también debe aceptar las cuatro fixtures.
-- [ ] **Step 2:** `npm --prefix frontend run test -- src/lib/barcodeFixtures.test.ts`; esperar FAIL por fixtures ausentes.
-- [ ] **Step 3:** Añadir `bwip-js` dev y script; generar EAN-13 con margen blanco, alto contraste, número legible y etiquetas de prueba. HTML imprime/muestra las cuatro imágenes sin llamadas externas. Repetir generación no modifica el resultado. No usar generación de imágenes por IA para las barras.
-- [ ] **Step 4:** Repetir test con decoder real; esperar PASS. Documentar cómo asociar A/B/C manualmente en entorno de pruebas a tres productos, incluir A/B en una lista y dejar D sin asociación. Los números de ejemplo pueden usarse hasta antes de guardar en producción; para guardar con cantidades ficticias usar DB y catálogo de prueba aislados. En producción guardar solo conteos físicos reales, porque alimentan el historial.
-- [ ] **Step 5:** Documentar prueba manual en Safari/iPhone y Chrome/Android: permiso inicial/rechazado/reintento; A/B desde pantalla y etiqueta impresa; envase real con código verificado y asociado; C fuera de lista; D desconocido; cancelar durante permiso; mantener código en cámara sin duplicar; bloquear/desbloquear; reabrir diez veces; recuento a ciegas; teclado, orientación y controles en 360/390 px. Registrar modelo, SO, navegador, resultado y tiempo aproximado. Imágenes de Google son opcionales únicamente tras verificar que el código impreso coincide; una foto de producto no identifica automáticamente su código.
-- [ ] **Step 6:** Ejecutar `npm run lint`, `npm run format:check`, `npm run test`, `npm run ai:check`, `npm run build:frontend`, `npm run build:backend` desde raíz. Esperar exit0, registrar warnings y tests omitidos. Completar pruebas DB aisladas antes de liberar. Commit `test: add barcode fixtures and mobile acceptance guide`.
+- [x] **Step 1:** Test de decodificación real: cargar cada PNG como luminancia con `pngjs` (dependencia dev junto con `@types/pngjs`) y usar `@zxing/library` sin simular decoder; resultado debe igualar exactamente su código del manifiesto. Una imagen blanca debe producir “no encontrado”. Declarar dependencias dev necesarias con versiones exactas. `normalizeBarcode` también debe aceptar las cuatro fixtures.
+- [x] **Step 2:** `npm --prefix frontend run test -- src/lib/barcodeFixtures.test.ts`; esperar FAIL por fixtures ausentes.
+- [x] **Step 3:** Añadir `bwip-js` dev y script; generar EAN-13 con margen blanco, alto contraste, número legible y etiquetas de prueba. HTML imprime/muestra las cuatro imágenes sin llamadas externas. Repetir generación no modifica el resultado. No usar generación de imágenes por IA para las barras.
+- [x] **Step 4:** Repetir test con decoder real; esperar PASS. Documentar cómo asociar A/B/C manualmente en entorno de pruebas a tres productos, incluir A/B en una lista y dejar D sin asociación. Los números de ejemplo pueden usarse hasta antes de guardar en producción; para guardar con cantidades ficticias usar DB y catálogo de prueba aislados. En producción guardar solo conteos físicos reales, porque alimentan el historial.
+- [x] **Step 5:** Documentar prueba manual en Safari/iPhone y Chrome/Android: permiso inicial/rechazado/reintento; A/B desde pantalla y etiqueta impresa; envase real con código verificado y asociado; C fuera de lista; D desconocido; cancelar durante permiso; mantener código en cámara sin duplicar; bloquear/desbloquear; reabrir diez veces; recuento a ciegas; teclado, orientación y controles en 360/390 px. Registrar modelo, SO, navegador, resultado y tiempo aproximado. Imágenes de Google son opcionales únicamente tras verificar que el código impreso coincide; una foto de producto no identifica automáticamente su código.
+- [x] **Step 6:** Ejecutar `npm run lint`, `npm run format:check`, `npm run test`, `npm run ai:check`, `npm run build:frontend`, `npm run build:backend` desde raíz. Esperar exit0, registrar warnings y tests omitidos. Completar pruebas DB aisladas antes de liberar. Commit `test: add barcode fixtures and mobile acceptance guide`.
 
 ## Entrega y despliegue
 
@@ -167,4 +167,4 @@ El resultado solo se considera validado en ambos teléfonos tras registrar prueb
 - [x] Diferenciado lo incluido del resto de la visión original, en especial fotos, extras y modo por unidad.
 - [x] Material de prueba no depende de códigos comerciales encontrados en Google.
 - [x] No se confunden tests simulados con aceptación en teléfonos físicos.
-- [ ] Revisión del usuario antes de implementación; método previo de ejecución por subagentes conservado.
+- [x] Usuario aprobó el plan y eligió ejecución inline con executing-plans.

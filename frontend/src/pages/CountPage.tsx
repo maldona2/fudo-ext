@@ -140,13 +140,13 @@ export function CountPage() {
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
-  const [scanned, setScanned] = useState<{productId: string} | null>(null);
+  const [scanned, setScanned] = useState<{ productId: string } | null>(null);
   const scanHandled = useRef(false);
   useEffect(() => {
     if (!scanned) return;
     const input = document.getElementById(`q-${scanned.productId}`);
-    input?.scrollIntoView?.({block: 'center', behavior: 'smooth'});
-    input?.focus({preventScroll: true});
+    input?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    input?.focus({ preventScroll: true });
     const timer = window.setTimeout(() => setScanned(null), 2500);
     return () => window.clearTimeout(timer);
   }, [scanned]);
@@ -200,18 +200,27 @@ export function CountPage() {
     if (scanHandled.current) return;
     scanHandled.current = true;
     setScanning(false);
-    const resolution = resolveBarcode(raw, list ?? [], recount ? new Set(recount.ids) : scope);
+    const resolution = resolveBarcode(
+      raw,
+      list ?? [],
+      recount ? new Set(recount.ids) : scope
+    );
     if (resolution.kind === 'match') {
       setQuery('');
       setScanMessage(null);
-      setScanned({productId: resolution.productId});
+      setScanned({ productId: resolution.productId });
       return;
     }
     const messages = {
-      invalid: 'El código no es un EAN o UPC válido. Probá de nuevo o buscá por nombre.',
-      unknown: 'Código no asociado. Buscá el producto por nombre o avisale al dueño.',
-      ambiguous: 'Este código tiene más de una asociación. Avisale al dueño y buscá por nombre.',
-      'out-of-scope': recount ? 'Este producto no está entre los que tenés que volver a contar.' : 'Este producto no pertenece a esta lista.',
+      invalid:
+        'El código no es un EAN o UPC válido. Probá de nuevo o buscá por nombre.',
+      unknown:
+        'Código no asociado. Buscá el producto por nombre o avisale al dueño.',
+      ambiguous:
+        'Este código tiene más de una asociación. Avisale al dueño y buscá por nombre.',
+      'out-of-scope': recount
+        ? 'Este producto no está entre los que tenés que volver a contar.'
+        : 'Este producto no pertenece a esta lista.',
     };
     setScanMessage(messages[resolution.kind]);
   };
@@ -467,8 +476,34 @@ export function CountPage() {
         </div>
       )}
 
-      <Button type="button" variant="outline" className="h-12 w-full" disabled={!list || busy || scanning || incompleteRecountScope || unavailableRecountIds.length > 0} onClick={() => {scanHandled.current = false; setScanMessage(null); setScanned(null); setScanning(true);}}>Escanear</Button>
-      {scanning && <BarcodeScanner onDetected={onDetected} onClose={() => {setScanning(false);}}/>}
+      <Button
+        type="button"
+        variant="outline"
+        className="h-12 w-full"
+        disabled={
+          !list ||
+          busy ||
+          scanning ||
+          incompleteRecountScope ||
+          unavailableRecountIds.length > 0
+        }
+        onClick={() => {
+          scanHandled.current = false;
+          setScanMessage(null);
+          setScanned(null);
+          setScanning(true);
+        }}
+      >
+        Escanear
+      </Button>
+      {scanning && (
+        <BarcodeScanner
+          onDetected={onDetected}
+          onClose={() => {
+            setScanning(false);
+          }}
+        />
+      )}
       {scanMessage && <Notice tone="error">{scanMessage}</Notice>}
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
@@ -540,7 +575,14 @@ export function CountPage() {
               if (p.pack) {
                 const closed = parsePacks(packValue);
                 return (
-                  <li key={p.id} className={cn("space-y-2 px-3 py-3", scanned?.productId === p.id && "ring-2 ring-primary ring-inset")}>
+                  <li
+                    key={p.id}
+                    className={cn(
+                      'space-y-2 px-3 py-3',
+                      scanned?.productId === p.id &&
+                        'ring-2 ring-primary ring-inset'
+                    )}
+                  >
                     <div className="flex items-center gap-2">
                       {total !== undefined && (
                         <Check
@@ -626,7 +668,11 @@ export function CountPage() {
               return (
                 <li
                   key={p.id}
-                  className={cn("flex flex-wrap items-center gap-3 px-3 py-2", scanned?.productId === p.id && "ring-2 ring-primary ring-inset")}
+                  className={cn(
+                    'flex flex-wrap items-center gap-3 px-3 py-2',
+                    scanned?.productId === p.id &&
+                      'ring-2 ring-primary ring-inset'
+                  )}
                 >
                   {total !== undefined && (
                     <Check
@@ -711,7 +757,10 @@ export function CountPage() {
           <Button
             className="h-12 px-6 text-lg"
             disabled={
-              busy || scanning || entries.length + invalid.length === 0 || !recountComplete
+              busy ||
+              scanning ||
+              entries.length + invalid.length === 0 ||
+              !recountComplete
             }
             onClick={() => void save()}
           >

@@ -75,8 +75,14 @@ export const products = {
 };
 
 export const productBarcodes = {
-  save: (value: ProductBarcode) => api.put('/product-barcodes', value).then(() => undefined),
-  remove: ({productId, barcode}: ProductBarcode) => api.delete(`/product-barcodes/${encodeURIComponent(productId)}/${encodeURIComponent(barcode)}`).then(() => undefined),
+  save: (value: ProductBarcode) =>
+    api.put('/product-barcodes', value).then(() => undefined),
+  remove: ({ productId, barcode }: ProductBarcode) =>
+    api
+      .delete(
+        `/product-barcodes/${encodeURIComponent(productId)}/${encodeURIComponent(barcode)}`
+      )
+      .then(() => undefined),
 };
 
 export const productPacks = {

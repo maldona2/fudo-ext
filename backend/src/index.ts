@@ -63,7 +63,11 @@ const services: Services = {
     countableProductIds: async () =>
       new Set((await productsService.listForCount()).map((p) => p.id)),
   }),
-  productBarcodes: createProductBarcodesService({ repo: barcodes, countableProductIds: async () => new Set((await productsService.listForCount()).map(p => p.id)) }),
+  productBarcodes: createProductBarcodesService({
+    repo: barcodes,
+    countableProductIds: async () =>
+      new Set((await productsService.listForCount()).map((p) => p.id)),
+  }),
   health: async () => {
     await pool.query('SELECT 1');
   },

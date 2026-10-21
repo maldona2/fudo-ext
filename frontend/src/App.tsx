@@ -47,7 +47,14 @@ function App() {
             }
           >
             <Route path="/" element={<Home />} />
-            <Route path="/codigos" element={<RequireUser role="owner"><BarcodesPage /></RequireUser>} />
+            <Route
+              path="/codigos"
+              element={
+                <RequireUser role="owner">
+                  <BarcodesPage />
+                </RequireUser>
+              }
+            />
             <Route path="/contar" element={<CountPage />} />
             <Route
               path="/panel"

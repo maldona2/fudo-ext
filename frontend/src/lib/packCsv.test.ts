@@ -3,8 +3,22 @@ import type { CountProduct } from '@/types/api';
 import { parsePackCsv } from './packCsv';
 
 const products: CountProduct[] = [
-  { id: '30', name: 'Cóca 354', code: '30', category: 'Bebidas', pack: null },
-  { id: '7', name: 'Agua', code: '7', category: 'Bebidas', pack: null },
+  {
+    barcodes: [],
+    id: '30',
+    name: 'Cóca 354',
+    code: '30',
+    category: 'Bebidas',
+    pack: null,
+  },
+  {
+    barcodes: [],
+    id: '7',
+    name: 'Agua',
+    code: '7',
+    category: 'Bebidas',
+    pack: null,
+  },
 ];
 
 describe('parsePackCsv', () => {

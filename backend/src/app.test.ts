@@ -122,8 +122,12 @@ const makeServices = () => {
       remove: async (id) => id === '14',
     },
     productBarcodes: {
-      add: async (value) => { created.push(value); },
-      remove: async (value) => { if (value.productId !== '14') throw new HttpError(404, 'No encontrado'); },
+      add: async (value) => {
+        created.push(value);
+      },
+      remove: async (value) => {
+        if (value.productId !== '14') throw new HttpError(404, 'No encontrado');
+      },
     },
     health: async () => undefined,
   };
@@ -851,34 +855,100 @@ describe('count lists', () => {
   });
 });
 
-
 describe('protected barcode routes', () => {
   const value = { productId: '14', barcode: '2000000000015' };
-  it.each([['', 401], ['counter-token', 403]])('rejects unauthorized role %s', async (token, status) => {
+  it.each([
+    ['', 401],
+    ['counter-token', 403],
+  ])('rejects unauthorized role %s', async (token, status) => {
     const { services } = makeServices();
     const app = createApp(services);
-    expect((await request(app).put('/api/product-barcodes').set('Cookie', `sid=${token}`).send(value)).status).toBe(status);
-    expect((await request(app).delete('/api/product-barcodes/14/2000000000015').set('Cookie', `sid=${token}`)).status).toBe(status);
+    expect(
+      (
+        await request(app)
+          .put('/api/product-barcodes')
+          .set('Cookie', `sid=${token}`)
+          .send(value)
+      ).status
+    ).toBe(status);
+    expect(
+      (
+        await request(app)
+          .delete('/api/product-barcodes/14/2000000000015')
+          .set('Cookie', `sid=${token}`)
+      ).status
+    ).toBe(status);
   });
-  it.each([{ ...value, barcode: 'bad' }, { ...value, productId: '../x' }, { ...value, surprise: true }, { productId: '14' }, { ...value, barcode: '0'.repeat(65) }])('rejects malformed body %j', async body => {
+  it.each([
+    { ...value, barcode: 'bad' },
+    { ...value, productId: '../x' },
+    { ...value, surprise: true },
+    { productId: '14' },
+    { ...value, barcode: '0'.repeat(65) },
+  ])('rejects malformed body %j', async (body) => {
     const { services } = makeServices();
-    expect((await request(createApp(services)).put('/api/product-barcodes').set('Cookie', 'sid=owner-token').send(body)).status).toBe(400);
+    expect(
+      (
+        await request(createApp(services))
+          .put('/api/product-barcodes')
+          .set('Cookie', 'sid=owner-token')
+          .send(body)
+      ).status
+    ).toBe(400);
   });
   it('accepts canonical mappings and removes exact associations', async () => {
     const { services, created } = makeServices();
     const app = createApp(services);
-    expect((await request(app).put('/api/product-barcodes').set('Cookie', 'sid=owner-token').send({ productId:'14', barcode:'036000291452' })).status).toBe(204);
-    expect(created).toContainEqual({productId:'14', barcode:'0036000291452'});
-    expect((await request(app).delete('/api/product-barcodes/14/2000000000015').set('Cookie', 'sid=owner-token')).status).toBe(204);
-    expect((await request(app).delete('/api/product-barcodes/99/2000000000015').set('Cookie', 'sid=owner-token')).status).toBe(404);
+    expect(
+      (
+        await request(app)
+          .put('/api/product-barcodes')
+          .set('Cookie', 'sid=owner-token')
+          .send({ productId: '14', barcode: '036000291452' })
+      ).status
+    ).toBe(204);
+    expect(created).toContainEqual({
+      productId: '14',
+      barcode: '0036000291452',
+    });
+    expect(
+      (
+        await request(app)
+          .delete('/api/product-barcodes/14/2000000000015')
+          .set('Cookie', 'sid=owner-token')
+      ).status
+    ).toBe(204);
+    expect(
+      (
+        await request(app)
+          .delete('/api/product-barcodes/99/2000000000015')
+          .set('Cookie', 'sid=owner-token')
+      ).status
+    ).toBe(404);
   });
   it('returns conflicts and generic failures without leaking driver messages', async () => {
     const { services } = makeServices();
-    services.productBarcodes.add = async () => { throw new HttpError(409, 'Conflicto'); };
-    expect((await request(createApp(services)).put('/api/product-barcodes').set('Cookie', 'sid=owner-token').send(value)).status).toBe(409);
-    services.productBarcodes.add = async () => { throw new Error('private driver password'); };
-    const result = await request(createApp(services)).put('/api/product-barcodes').set('Cookie', 'sid=owner-token').send(value);
+    services.productBarcodes.add = async () => {
+      throw new HttpError(409, 'Conflicto');
+    };
+    expect(
+      (
+        await request(createApp(services))
+          .put('/api/product-barcodes')
+          .set('Cookie', 'sid=owner-token')
+          .send(value)
+      ).status
+    ).toBe(409);
+    services.productBarcodes.add = async () => {
+      throw new Error('private driver password');
+    };
+    const result = await request(createApp(services))
+      .put('/api/product-barcodes')
+      .set('Cookie', 'sid=owner-token')
+      .send(value);
     expect(result.status).toBe(500);
-    expect(JSON.stringify(result.body)).not.toContain('private driver password');
+    expect(JSON.stringify(result.body)).not.toContain(
+      'private driver password'
+    );
   });
 });

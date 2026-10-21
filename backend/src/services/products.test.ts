@@ -78,28 +78,41 @@ describe('products service', () => {
 
     expect(await service.listForCount()).toEqual([
       expect.objectContaining({ id: '13', pack: null }),
-      expect.objectContaining({ id: '14',
-          barcodes: [], pack: null }),
+      expect.objectContaining({ id: '14', barcodes: [], pack: null }),
     ]);
     packs = new Map([['14', { units: 24, label: 'cajón' }]]);
     expect(await service.listForCount()).toEqual([
       expect.objectContaining({ id: '13', pack: null }),
       expect.objectContaining({
         id: '14',
-          barcodes: [],
+        barcodes: [],
         pack: { units: 24, label: 'cajón' },
       }),
     ]);
   });
 });
 
-
 it('refreshes barcodes independently of the FUDO catalog cache', async () => {
   let values = ['2000000000015'];
   const service = createProductsService({
-    products: async () => [{ id:'14', name:'A', code:null, categoryId:null, cost:null, price:null, stock:0 }],
-    categories: async () => new Map(), packs: async () => new Map(),
-    barcodes: async () => new Map([['14', values], ['999', ['2000000000022']]]),
+    products: async () => [
+      {
+        id: '14',
+        name: 'A',
+        code: null,
+        categoryId: null,
+        cost: null,
+        price: null,
+        stock: 0,
+      },
+    ],
+    categories: async () => new Map(),
+    packs: async () => new Map(),
+    barcodes: async () =>
+      new Map([
+        ['14', values],
+        ['999', ['2000000000022']],
+      ]),
   });
   expect((await service.listForCount())[0].barcodes).toEqual(values);
   values = [];

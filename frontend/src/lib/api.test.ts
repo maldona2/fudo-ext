@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AxiosError } from 'axios';
+import { AxiosError, AxiosHeaders } from 'axios';
 import { errorMessage } from './api';
 
 describe('errorMessage', () => {
@@ -10,7 +10,7 @@ describe('errorMessage', () => {
       status: 400,
       statusText: 'Bad Request',
       headers: {},
-      config: { headers: {} },
+      config: { headers: new AxiosHeaders() },
     };
 
     expect(errorMessage(error)).toBe('El recuento venció. Volvé a empezar.');
@@ -23,7 +23,7 @@ describe('errorMessage', () => {
       status: 500,
       statusText: 'Internal Server Error',
       headers: {},
-      config: { headers: {} },
+      config: { headers: new AxiosHeaders() },
     };
 
     expect(errorMessage(error)).toBe('Algo salió mal. Probá de nuevo.');
@@ -36,7 +36,7 @@ describe('errorMessage', () => {
       status: 400,
       statusText: 'Bad Request',
       headers: {},
-      config: { headers: {} },
+      config: { headers: new AxiosHeaders() },
     };
 
     expect(errorMessage(error)).toBe('Revisá los datos ingresados.');
