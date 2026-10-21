@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatMoney, formatUnits } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -10,15 +11,22 @@ export function DifferenceBadge({
   value: number | null;
 }) {
   if (difference === 0) {
-    return <Badge variant="secondary">OK</Badge>;
+    return (
+      <Badge className="bg-success-soft text-success-foreground">
+        <Check aria-hidden />
+        Sin diferencias
+      </Badge>
+    );
   }
   const missing = difference < 0;
-  const money = value === null ? '' : ` (${formatMoney(value)})`;
+  const money = value === null ? '' : ` · ${formatMoney(value)}`;
   return (
     <Badge
       className={cn(
-        'text-sm',
-        missing ? 'bg-destructive text-white' : 'bg-amber-100 text-amber-900'
+        'h-auto py-1 text-sm whitespace-normal',
+        missing
+          ? 'bg-danger-soft text-danger-foreground'
+          : 'bg-warning-soft text-warning-foreground'
       )}
     >
       {missing ? 'Faltan' : 'Sobran'} {formatUnits(difference)}

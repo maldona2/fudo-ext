@@ -77,7 +77,7 @@ export function BarcodesPage() {
   };
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Códigos de barras</h1>
+      <h1 className="text-2xl font-extrabold">Códigos de barras</h1>
       <p>
         Asociá el código de cada unidad a su producto. El código interno de FUDO
         puede ser diferente.
@@ -87,7 +87,6 @@ export function BarcodesPage() {
       <Label htmlFor="barcode-product-search">Buscar producto</Label>
       <Input
         id="barcode-product-search"
-        className="h-12"
         value={query}
         disabled={busy || scanning}
         onChange={(e) => setQuery(e.target.value)}
@@ -105,7 +104,7 @@ export function BarcodesPage() {
               <Button
                 type="button"
                 variant={p.id === selectedId ? 'default' : 'outline'}
-                className="h-auto min-h-12 w-full justify-start whitespace-normal text-left"
+                className="h-auto min-h-12 w-full justify-start rounded-2xl whitespace-normal text-left"
                 disabled={busy || scanning}
                 aria-pressed={p.id === selectedId}
                 onClick={() => {
@@ -126,7 +125,7 @@ export function BarcodesPage() {
       )}
       {selected && (
         <section
-          className="space-y-4 rounded-lg border bg-background p-4"
+          className="space-y-4 rounded-2xl border border-border bg-card p-4"
           aria-label="Asociación de código"
         >
           <h2 className="text-lg font-semibold">
@@ -139,7 +138,6 @@ export function BarcodesPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12"
                   disabled={busy || scanning}
                   aria-label={`Quitar ${value}`}
                   onClick={() => void mutate(value)}
@@ -161,7 +159,6 @@ export function BarcodesPage() {
             <Button
               type="button"
               variant="outline"
-              className="h-12"
               disabled={busy}
               onClick={() => setScanning(true)}
             >
@@ -172,7 +169,7 @@ export function BarcodesPage() {
             <Label htmlFor="barcode-value">Código de barras</Label>
             <Input
               id="barcode-value"
-              className="h-12 font-mono"
+              className="font-mono"
               inputMode="numeric"
               maxLength={64}
               autoComplete="off"
@@ -186,7 +183,8 @@ export function BarcodesPage() {
             </p>
             <Button
               type="submit"
-              className="h-12 w-full"
+              size="lg"
+              className="w-full"
               disabled={busy || scanning}
             >
               {busy ? 'Guardando…' : 'Guardar asociación'}

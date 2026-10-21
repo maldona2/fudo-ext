@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { DifferenceBadge } from '@/components/DifferenceBadge';
 import { Notice } from '@/components/Notice';
 import { useAuth } from '@/contexts/AuthContext';
@@ -55,74 +54,102 @@ export function CountDetailPage() {
   const withDifference = count.lines.filter((l) => l.difference !== 0);
   const ok = count.lines.filter((l) => l.difference === 0);
 
+  const isOwner = user?.role === 'owner';
+  const box = (label: string, value: number) => (
+    <div className="rounded-xl bg-muted px-2 py-2 text-center">
+      <p className="text-xs font-bold text-foreground-secondary">{label}</p>
+      <p className="text-lg font-extrabold tabular-nums">
+        {formatUnits(value)}
+      </p>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <Link
         to="/panel"
-        className="inline-flex items-center gap-1 text-base text-muted-foreground"
+        className="inline-flex h-11 items-center gap-1 rounded-full text-base font-bold text-primary"
       >
-        <ArrowLeft className="size-4" /> Volver al panel
+        <ArrowLeft aria-hidden className="size-4" /> Volver al panel
       </Link>
-      <div>
-        <h1 className="text-2xl font-bold">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-extrabold">
           Conteo del {formatDateTime(count.countedAt)}
         </h1>
-        <p className="text-muted-foreground">
-          {count.list && <>Lista “{count.list.name}” · </>}
-          Lo hizo {count.createdBy.name} ·{' '}
-          {plural(count.summary.products, 'producto', 'productos')}
-          {count.note && <> · “{count.note}”</>}
-        </p>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          <dt className="font-medium text-foreground-secondary">Lo hizo</dt>
+          <dd className="font-bold">{count.createdBy.name}</dd>
+          {count.list && (
+            <>
+              <dt className="font-medium text-foreground-secondary">Lista</dt>
+              <dd className="font-bold">{count.list.name}</dd>
+            </>
+          )}
+          <dt className="font-medium text-foreground-secondary">Productos</dt>
+          <dd className="font-bold">
+            {plural(count.summary.products, 'producto', 'productos')}
+          </dd>
+          {count.note && (
+            <>
+              <dt className="font-medium text-foreground-secondary">Nota</dt>
+              <dd className="font-bold">“{count.note}”</dd>
+            </>
+          )}
+        </dl>
       </div>
 
-      <Card>
-        <CardContent className="grid grid-cols-2 gap-4 text-center">
-          <div>
-            <p className="text-sm text-muted-foreground">Faltan</p>
-            <p className="text-2xl font-bold text-destructive">
-              {formatUnits(count.summary.missingUnits)} u.
-            </p>
-            <p className="text-base">
-              {formatMoney(count.summary.missingValue)}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Sobran</p>
-            <p className="text-2xl font-bold">
-              {formatUnits(count.summary.surplusUnits)} u.
-            </p>
-            <p className="text-base">
-              {formatMoney(count.summary.surplusValue)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-2 gap-3 text-center">
+        <div className="rounded-2xl bg-danger-soft p-4 text-danger-foreground">
+          <p className="text-sm font-bold">Faltan</p>
+          <p className="text-2xl font-extrabold tabular-nums">
+            {formatUnits(count.summary.missingUnits)} u.
+          </p>
+          <p className="text-base font-bold">
+            {formatMoney(count.summary.missingValue)}
+          </p>
+        </div>
+        <div className="rounded-2xl bg-warning-soft p-4 text-warning-foreground">
+          <p className="text-sm font-bold">Sobran</p>
+          <p className="text-2xl font-extrabold tabular-nums">
+            {formatUnits(count.summary.surplusUnits)} u.
+          </p>
+          <p className="text-base font-bold">
+            {formatMoney(count.summary.surplusValue)}
+          </p>
+        </div>
+      </div>
 
       {withDifference.length === 0 ? (
         <Notice tone="success">
-          ✅ Todo lo contado coincide con lo esperado.
+          Todo lo contado coincide con lo esperado.
         </Notice>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {withDifference.map((l) => (
             <li
               key={l.productId}
-              className="rounded-lg border bg-background px-4 py-3"
+              className="space-y-3 rounded-2xl border border-border bg-card p-4"
             >
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-lg font-medium">{l.name}</span>
+              <div className="space-y-2">
+                <span className="block text-[17px] font-semibold break-words">
+                  {l.name}
+                </span>
                 <DifferenceBadge
                   difference={l.difference}
                   value={l.differenceValue}
                 />
               </div>
-              <p className="mt-1 text-base text-muted-foreground">
-                <Explanation line={l} />
-                {user?.role === 'owner' && l.firstCounted != null && (
-                  <span className="ml-2">
-                    (1er conteo: {formatUnits(l.firstCounted)})
-                  </span>
+              <div className="grid grid-cols-3 gap-2">
+                {box('Esperado', l.expected)}
+                {isOwner && l.firstCounted != null ? (
+                  box('1er conteo', l.firstCounted)
+                ) : (
+                  <div />
                 )}
+                {box('Final', l.counted)}
+              </div>
+              <p className="text-sm font-medium text-foreground-secondary">
+                <Explanation line={l} />
               </p>
             </li>
           ))}
@@ -130,15 +157,15 @@ export function CountDetailPage() {
       )}
 
       {ok.length > 0 && (
-        <details className="rounded-lg border bg-background px-4 py-3">
-          <summary className="cursor-pointer text-base">
+        <details className="rounded-2xl border border-border bg-card px-4 py-3">
+          <summary className="min-h-11 cursor-pointer text-base font-bold">
             {plural(ok.length, 'producto', 'productos')} sin diferencias
           </summary>
-          <ul className="mt-2 space-y-1 text-base text-muted-foreground">
+          <ul className="mt-2 space-y-1 text-base font-medium text-foreground-secondary">
             {ok.map((l) => (
               <li key={l.productId}>
                 {l.name}: {formatUnits(l.counted)}
-                {user?.role === 'owner' && l.firstCounted != null && (
+                {isOwner && l.firstCounted != null && (
                   <span className="ml-2">
                     (1er conteo: {formatUnits(l.firstCounted)})
                   </span>

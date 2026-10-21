@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { BarcodeScanner } from '@/components/BarcodeScanner';
 import { resolveBarcode } from '@/lib/barcodes';
 import { Notice } from '@/components/Notice';
+import { useKeyboardOpen } from '@/hooks/useKeyboardOpen';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   countLists,
@@ -427,14 +428,53 @@ export function CountPage() {
     }
   };
 
+  const keyboardOpen = useKeyboardOpen();
+  const showRecountTitle =
+    recount &&
+    !error &&
+    !incompleteRecountScope &&
+    unavailableRecountIds.length === 0;
+  const progressTotal = recount ? recount.ids.length : listTotal;
+  const progressDone = recount ? recountCounted : countedInList;
+  const countedIds = groups
+    .flatMap(([, items]) => items)
+    .filter((p) => {
+      const q = draft[p.id] ?? '';
+      const pk = packs[p.id] ?? '';
+      return (
+        draftToEntries({ [p.id]: q }, { [p.id]: pk }, unitsPerPack).entries
+          .length > 0
+      );
+    })
+    .map((p) => p.id);
+  const lastCountedId = countedIds[countedIds.length - 1];
+  const goToLastCounted = () =>
+    document
+      .getElementById(`product-${lastCountedId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const saveLabel = busy
+    ? 'Guardando…'
+    : keyboardOpen
+      ? 'Guardar'
+      : recount
+        ? 'Guardar recuento'
+        : 'Guardar conteo';
+
   if (saved) {
     return (
-      <div className="space-y-4">
-        <Notice tone="success">
-          <p className="text-lg font-semibold">Conteo guardado ✓</p>
-          <p>Gracias. El dueño ya puede ver el resultado.</p>
-        </Notice>
-        <Button className="h-12 w-full text-lg" onClick={() => setSaved(false)}>
+      <div className="flex min-h-[70dvh] flex-col">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <span className="grid size-[88px] place-items-center rounded-full bg-success-soft text-success">
+            <Check aria-hidden className="size-11" strokeWidth={3} />
+          </span>
+          <div role="status" className="space-y-2">
+            <p className="text-[28px] font-extrabold">Conteo guardado</p>
+            <p className="text-[17px] font-medium text-foreground-secondary">
+              Gracias. El dueño ya puede ver el resultado.
+            </p>
+          </div>
+        </div>
+        <Button size="lg" className="w-full" onClick={() => setSaved(false)}>
           Hacer otro conteo
         </Button>
       </div>
@@ -443,16 +483,22 @@ export function CountPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Conteo de stock</h1>
-        <p className="text-muted-foreground">
-          Contá lo que hay y anotá la cantidad. Dejá vacío lo que no contaste.
+      <div className="space-y-1">
+        <h1 className="text-2xl font-extrabold">
+          {showRecountTitle
+            ? 'Volvé a contar estos productos'
+            : 'Conteo de stock'}
+        </h1>
+        <p className="text-sm font-medium text-foreground-secondary">
+          {showRecountTitle
+            ? `${recount.ids.length === 1 ? 'Es 1 producto' : `Son ${recount.ids.length} productos`}. Contalos de nuevo con calma y cargá lo que hay.`
+            : 'Contá lo que hay y anotá la cantidad. Dejá vacío lo que no contaste.'}
         </p>
       </div>
 
       {lists.length > 0 && !recount && (
         <div
-          className="flex flex-wrap gap-2"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1"
           role="group"
           aria-label="Qué contar"
         >
@@ -464,10 +510,10 @@ export function CountPage() {
               disabled={scanning}
               onClick={() => setListId(l.id)}
               className={cn(
-                'rounded-full border px-4 py-2 text-base',
+                'h-11 shrink-0 rounded-full border-2 px-5 text-[15px] font-bold disabled:opacity-50',
                 listId === l.id
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'bg-background hover:bg-muted'
+                  ? 'border-foreground bg-foreground text-white'
+                  : 'border-border bg-card text-foreground-medium'
               )}
             >
               {l.name}
@@ -476,26 +522,44 @@ export function CountPage() {
         </div>
       )}
 
-      <Button
-        type="button"
-        variant="outline"
-        className="h-12 w-full"
-        disabled={
-          !list ||
-          busy ||
-          scanning ||
-          incompleteRecountScope ||
-          unavailableRecountIds.length > 0
-        }
-        onClick={() => {
-          scanHandled.current = false;
-          setScanMessage(null);
-          setScanned(null);
-          setScanning(true);
-        }}
-      >
-        Escanear
-      </Button>
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-foreground-secondary"
+          />
+          <Input
+            disabled={scanning}
+            type="search"
+            placeholder="Buscar producto o código"
+            aria-label="Buscar producto"
+            className="h-[52px] rounded-full pl-11 text-base"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="md"
+          className="h-[52px] border-primary text-primary"
+          disabled={
+            !list ||
+            busy ||
+            scanning ||
+            incompleteRecountScope ||
+            unavailableRecountIds.length > 0
+          }
+          onClick={() => {
+            scanHandled.current = false;
+            setScanMessage(null);
+            setScanned(null);
+            setScanning(true);
+          }}
+        >
+          Escanear
+        </Button>
+      </div>
       {scanning && (
         <BarcodeScanner
           onDetected={onDetected}
@@ -505,18 +569,6 @@ export function CountPage() {
         />
       )}
       {scanMessage && <Notice tone="error">{scanMessage}</Notice>}
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          disabled={scanning}
-          type="search"
-          placeholder="Buscar producto o código"
-          aria-label="Buscar producto"
-          className="h-12 pl-10 text-lg"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
 
       {error && <Notice tone="error">{error}</Notice>}
       {recount && unavailableRecountIds.length > 0 && (
@@ -531,16 +583,6 @@ export function CountPage() {
           nuevo para revisar todos los productos.
         </Notice>
       )}
-      {recount &&
-        !error &&
-        !incompleteRecountScope &&
-        unavailableRecountIds.length === 0 && (
-          <Notice>
-            Volvé a contar {recount.ids.length}{' '}
-            {recount.ids.length === 1 ? 'producto' : 'productos'}. Contalos de
-            nuevo con calma.
-          </Notice>
-        )}
       {(canStartAgain ||
         unavailableRecountIds.length > 0 ||
         incompleteRecountScope) &&
@@ -556,10 +598,10 @@ export function CountPage() {
 
       {groups.map(([category, items]) => (
         <section key={category} className="space-y-2">
-          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+          <h2 className="text-xs font-bold tracking-[0.08em] text-foreground-secondary uppercase">
             {category}
           </h2>
-          <ul className="divide-y rounded-lg border bg-background">
+          <ul className="space-y-3">
             {items.map((p) => {
               const value = draft[p.id] ?? '';
               const packValue = packs[p.id] ?? '';
@@ -569,46 +611,80 @@ export function CountPage() {
                 { [p.id]: packValue },
                 unitsPerPack
               ).entries[0]?.counted;
+              const counted = total !== undefined;
               const packLabel = p.pack
                 ? `${p.pack.label.charAt(0).toUpperCase()}${p.pack.label.slice(1)}s`
                 : '';
-              if (p.pack) {
-                const closed = parsePacks(packValue);
-                return (
-                  <li
-                    key={p.id}
-                    className={cn(
-                      'space-y-2 px-3 py-3',
-                      scanned?.productId === p.id &&
-                        'ring-2 ring-primary ring-inset'
+              const closed = p.pack ? parsePacks(packValue) : 0;
+              const badPacks = Boolean(p.pack) && Number.isNaN(closed);
+              const badLoose =
+                Boolean(p.pack) && Number.isNaN(parseQuantity(value));
+              const hasError = p.pack ? badPacks || badLoose : bad;
+              const card = cn(
+                'space-y-3 rounded-2xl bg-card p-3.5',
+                hasError
+                  ? 'border-2 border-danger'
+                  : counted
+                    ? 'border-2 border-[#c9b8f7]'
+                    : 'border border-border',
+                scanned?.productId === p.id && 'ring-4 ring-primary/40'
+              );
+              const fieldClass = cn(
+                'h-14 text-center text-[22px] font-extrabold tabular-nums',
+                !counted &&
+                  !hasError &&
+                  'border-dashed border-uncounted-border bg-uncounted placeholder:text-uncounted-dash',
+                counted && !hasError && 'border-primary'
+              );
+              const chip = counted ? (
+                <span className="inline-flex h-7 items-center gap-1 rounded-full bg-primary-soft px-3 text-[13px] font-bold text-primary-soft-foreground">
+                  <Check
+                    aria-label={`Contado: ${p.name}`}
+                    className="size-3.5"
+                    strokeWidth={3}
+                  />
+                  {total === 0 ? 'Contado en cero' : 'Contado'}
+                </span>
+              ) : (
+                <span className="inline-flex h-7 items-center rounded-full bg-uncounted px-3 text-[13px] font-bold text-foreground-secondary">
+                  Sin contar
+                </span>
+              );
+              const title = (
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  {recount ? null : chip}
+                  <p className="text-[17px] leading-snug font-semibold break-words">
+                    {p.name}
+                    {p.code && (
+                      <span className="ml-2 text-sm font-medium text-foreground-secondary">
+                        #{p.code}
+                      </span>
                     )}
-                  >
-                    <div className="flex items-center gap-2">
-                      {total !== undefined && (
-                        <Check
-                          aria-label={`Contado: ${p.name}`}
-                          className="size-5 shrink-0 text-primary"
-                        />
-                      )}
-                      <p className="text-base">
-                        {p.name}
-                        {p.code && (
-                          <span className="ml-2 text-sm text-muted-foreground">
-                            #{p.code}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-end gap-3">
+                  </p>
+                </div>
+              );
+              const errorText = hasError && (
+                <p className="text-sm font-bold text-danger-foreground">
+                  Escribí solo números
+                </p>
+              );
+              if (p.pack) {
+                return (
+                  <li key={p.id} id={`product-${p.id}`} className={card}>
+                    {title}
+                    <p className="text-sm font-bold text-primary">
+                      1 {p.pack.label} = {p.pack.units} unidades
+                    </p>
+                    <div className="flex items-end gap-2">
                       <label className="min-w-0 flex-1 space-y-1">
-                        <span className="text-sm">{packLabel}</span>
+                        <span className="text-sm font-bold">{packLabel}</span>
                         <Input
                           aria-label={`${packLabel} de ${p.name}`}
                           inputMode="numeric"
                           autoComplete="off"
                           placeholder="—"
-                          aria-invalid={Number.isNaN(closed) || undefined}
-                          className="h-12 text-center text-lg"
+                          aria-invalid={badPacks || undefined}
+                          className={fieldClass}
                           value={packValue}
                           onChange={(e) =>
                             setPacks((d) => ({ ...d, [p.id]: e.target.value }))
@@ -616,17 +692,15 @@ export function CountPage() {
                         />
                       </label>
                       <label className="min-w-0 flex-1 space-y-1">
-                        <span className="text-sm">Sueltas</span>
+                        <span className="text-sm font-bold">Sueltas</span>
                         <Input
                           id={`q-${p.id}`}
                           aria-label={`Sueltas de ${p.name}`}
                           inputMode="decimal"
                           autoComplete="off"
                           placeholder="—"
-                          aria-invalid={
-                            Number.isNaN(parseQuantity(value)) || undefined
-                          }
-                          className="h-12 text-center text-lg"
+                          aria-invalid={badLoose || undefined}
+                          className={fieldClass}
                           value={value}
                           onChange={(e) =>
                             setDraft((d) => ({ ...d, [p.id]: e.target.value }))
@@ -635,8 +709,9 @@ export function CountPage() {
                       </label>
                       <Button
                         type="button"
-                        variant="outline"
-                        className="h-12"
+                        variant="soft"
+                        size="lg"
+                        className="shrink-0 px-4 text-base"
                         disabled={Number.isNaN(closed)}
                         onClick={() =>
                           setPacks((d) => ({
@@ -650,13 +725,22 @@ export function CountPage() {
                         +1 {p.pack.label}
                       </Button>
                     </div>
-                    {total !== undefined && (
-                      <p className="text-sm font-semibold">= {total} u.</p>
+                    {errorText}
+                    {counted && (
+                      <div className="flex items-center justify-between rounded-xl bg-primary-soft px-4 py-3">
+                        <span className="text-sm font-bold text-primary-soft-foreground">
+                          Total contado
+                        </span>
+                        <span className="text-xl font-extrabold tabular-nums">
+                          {total} unidades
+                        </span>
+                      </div>
                     )}
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
+                      size="md"
+                      className="w-full"
                       aria-label={`No hay ninguno: ${p.name}`}
                       onClick={() => markNone(p.id)}
                     >
@@ -666,52 +750,42 @@ export function CountPage() {
                 );
               }
               return (
-                <li
-                  key={p.id}
-                  className={cn(
-                    'flex flex-wrap items-center gap-3 px-3 py-2',
-                    scanned?.productId === p.id &&
-                      'ring-2 ring-primary ring-inset'
-                  )}
-                >
-                  {total !== undefined && (
-                    <Check
-                      aria-label={`Contado: ${p.name}`}
-                      className="size-5 shrink-0 text-primary"
+                <li key={p.id} id={`product-${p.id}`} className={card}>
+                  <div className="flex items-start gap-3">
+                    <label htmlFor={`q-${p.id}`} className="min-w-0 flex-1">
+                      {title}
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id={`q-${p.id}`}
+                      inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="—"
+                      aria-invalid={bad || undefined}
+                      className={cn(fieldClass, 'w-[116px]')}
+                      value={value}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, [p.id]: e.target.value }))
+                      }
                     />
-                  )}
-                  <label htmlFor={`q-${p.id}`} className="flex-1 text-base">
-                    {p.name}
-                    {p.code && (
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        #{p.code}
-                      </span>
-                    )}
-                  </label>
-                  <Input
-                    id={`q-${p.id}`}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    placeholder="—"
-                    aria-invalid={bad || undefined}
-                    className="h-12 w-24 text-center text-lg"
-                    value={value}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, [p.id]: e.target.value }))
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={`No hay ninguno: ${p.name}`}
-                    onClick={() => markNone(p.id)}
-                  >
-                    No hay ninguno
-                  </Button>
+                    <span className="flex-1 text-sm font-medium text-foreground-secondary">
+                      unidades
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="md"
+                      aria-label={`No hay ninguno: ${p.name}`}
+                      onClick={() => markNone(p.id)}
+                    >
+                      No hay ninguno
+                    </Button>
+                  </div>
+                  {errorText}
                   {packValue.trim() !== '' && (
-                    <div className="w-full space-y-2 rounded-md bg-muted p-3">
-                      <p className="text-sm">
+                    <div className="w-full space-y-2 rounded-xl bg-warning-soft p-3 text-warning-foreground">
+                      <p className="text-sm font-medium">
                         Ya no hay un bulto configurado para este producto. Tu
                         borrador tiene {packValue} bulto(s) que no podemos
                         convertir a unidades. Descartalos y anotá esas unidades
@@ -720,7 +794,7 @@ export function CountPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-12"
+                        size="md"
                         aria-label={`Descartar bultos de ${p.name}`}
                         onClick={() =>
                           setPacks((d) => {
@@ -741,21 +815,62 @@ export function CountPage() {
         </section>
       ))}
 
-      <div className="fixed inset-x-0 bottom-0 border-t bg-background">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
-          <span className="flex-1 text-base">
-            {recount
-              ? `Llevás ${recountCounted} de ${recount.ids.length}`
-              : chosen
-                ? `Llevás ${countedInList} de ${listTotal}`
-                : plural(
-                    entries.length,
-                    'producto contado',
-                    'productos contados'
-                  )}
-          </span>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card shadow-[0_-6px_20px_rgba(29,21,64,0.08)] lg:left-[248px]">
+        <div
+          className={cn(
+            'mx-auto max-w-3xl px-4 pt-3 pb-[max(env(safe-area-inset-bottom),16px)] lg:max-w-[960px]',
+            keyboardOpen ? 'flex items-center gap-3' : 'space-y-2'
+          )}
+        >
+          {!keyboardOpen && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[15px] font-bold">
+                {recount
+                  ? `Llevás ${recountCounted} de ${recount.ids.length}`
+                  : chosen
+                    ? `Llevás ${countedInList} de ${listTotal}`
+                    : plural(
+                        entries.length,
+                        'producto contado',
+                        'productos contados'
+                      )}
+              </span>
+              {lastCountedId && (
+                <button
+                  type="button"
+                  onClick={goToLastCounted}
+                  className="h-11 rounded-full px-2 text-[15px] font-bold text-primary"
+                >
+                  Ir al último contado
+                </button>
+              )}
+            </div>
+          )}
+          {progressTotal ? (
+            <div
+              role="progressbar"
+              aria-label="Avance del conteo"
+              aria-valuemin={0}
+              aria-valuemax={progressTotal}
+              aria-valuenow={progressDone}
+              className={cn(
+                'overflow-hidden rounded-full bg-primary-soft',
+                keyboardOpen ? 'h-1.5 flex-1' : 'h-2'
+              )}
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{
+                  width: `${Math.min(100, (progressDone / progressTotal) * 100)}%`,
+                }}
+              />
+            </div>
+          ) : (
+            keyboardOpen && <div className="flex-1" />
+          )}
           <Button
-            className="h-12 px-6 text-lg"
+            size="lg"
+            className={cn(keyboardOpen ? 'h-[52px] px-6' : 'w-full')}
             disabled={
               busy ||
               scanning ||
@@ -764,7 +879,7 @@ export function CountPage() {
             }
             onClick={() => void save()}
           >
-            {busy ? 'Guardando…' : 'Guardar conteo'}
+            {saveLabel}
           </Button>
         </div>
       </div>
