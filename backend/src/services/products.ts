@@ -7,6 +7,7 @@ interface Deps {
   products(): Promise<FudoProduct[]>;
   categories(): Promise<Map<string, string>>;
   packs(): Promise<Map<string, { units: number; label: string }>>;
+  barcodes?: () => Promise<Map<string, string[]>>;
   now?: () => number;
 }
 
@@ -17,6 +18,7 @@ export function createProductsService({
   categories,
   packs,
   now = Date.now,
+  barcodes = async () => new Map<string, string[]>(),
 }: Deps) {
   let cache: { at: number; list: Omit<CountProduct, 'pack'>[] } | null = null;
 
@@ -41,9 +43,11 @@ export function createProductsService({
         cache = { at: now(), list };
       }
       const currentPacks = await packs();
+      const currentBarcodes = await barcodes();
       return cache.list.map((item) => ({
         ...item,
         pack: currentPacks.get(item.id) ?? null,
+        barcodes: currentBarcodes.get(item.id) ?? [],
       }));
     },
   };

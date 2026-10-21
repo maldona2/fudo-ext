@@ -1,3 +1,4 @@
+import { productBarcodesRoutes } from './routes/productBarcodes.js';
 import express, { Express } from 'express';
 import cors from 'cors';
 import { errorHandler } from './utils/errorHandler.js';
@@ -64,6 +65,8 @@ export function createApp(services: Services): Express {
   app.use('/api/reports', reportsRoutes(services));
   app.use('/api/count-lists', countListsRoutes(services));
   app.use('/api/product-packs', productPacksRoutes(services));
+
+  app.use('/api/product-barcodes', productBarcodesRoutes(services));
 
   // Error handler (must be last)
   app.use(errorHandler);

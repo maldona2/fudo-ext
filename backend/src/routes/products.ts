@@ -17,6 +17,7 @@ export function productsRoutes(services: Services): Router {
           id: p.id,
           name: p.name,
           code: p.code,
+          barcodes: p.barcodes,
           category: p.category,
           pack: p.pack,
         })),

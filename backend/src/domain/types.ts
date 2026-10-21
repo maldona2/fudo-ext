@@ -120,5 +120,9 @@ export interface Services {
     upsert(packs: ProductPack[]): Promise<void>;
     remove(productId: string): Promise<boolean>;
   };
+  productBarcodes: {
+    add(value: ProductBarcode): Promise<void>;
+    remove(value: ProductBarcode): Promise<void>;
+  };
   health(): Promise<void>;
 }

@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { productBarcodesRepo } from './db/queries/productBarcodes.js';
+import { createProductBarcodesService } from './services/productBarcodes.js';
 import { createApp } from './app.js';
 import { loadConfig } from './config/env.js';
 import pool from './db/connect.js';
@@ -27,10 +29,12 @@ const users = usersRepo(pool);
 const usersService = createUsersService(users);
 const lists = countListsRepo(pool);
 const packs = productPacksRepo(pool);
+const barcodes = productBarcodesRepo(pool);
 const productsService = createProductsService({
   products: () => fetchProducts(fudo),
   categories: () => fetchCategories(fudo),
   packs: () => packs.all(),
+  barcodes: () => barcodes.all(),
 });
 
 const services: Services = {
@@ -59,6 +63,7 @@ const services: Services = {
     countableProductIds: async () =>
       new Set((await productsService.listForCount()).map((p) => p.id)),
   }),
+  productBarcodes: createProductBarcodesService({ repo: barcodes, countableProductIds: async () => new Set((await productsService.listForCount()).map(p => p.id)) }),
   health: async () => {
     await pool.query('SELECT 1');
   },
