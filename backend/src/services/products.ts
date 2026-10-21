@@ -27,6 +27,7 @@ export function createProductsService({
         const list = items
           .map((p) => ({
             id: p.id,
+            barcodes: [],
             name: p.name,
             code: p.code,
             category: (p.categoryId && names.get(p.categoryId)) || null,

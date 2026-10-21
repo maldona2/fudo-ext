@@ -10,7 +10,13 @@ export interface User {
   active: boolean;
 }
 
+export interface ProductBarcode {
+  productId: string;
+  barcode: string;
+}
+
 export interface CountProduct {
+  barcodes: string[];
   id: string;
   name: string;
   code: string | null;

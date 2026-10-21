@@ -62,6 +62,7 @@ const makeServices = () => {
       listForCount: async () => [
         {
           id: '14',
+          barcodes: [],
           name: 'Carne suave',
           code: '51',
           category: 'Empanadas',
