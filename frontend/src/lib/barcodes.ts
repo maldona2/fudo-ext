@@ -9,3 +9,16 @@ export function normalizeBarcode(raw: string): string | null {
   if ((10 - sum % 10) % 10 !== check) return null;
   return value.length === 12 ? `0${value}` : value;
 }
+
+export type BarcodeResolution = {kind:'match'; productId:string} | {kind:'invalid'|'unknown'|'ambiguous'|'out-of-scope'};
+
+export function resolveBarcode(raw: string, products: import('@/types/api').CountProduct[], allowedIds: ReadonlySet<string> | null): BarcodeResolution {
+  const barcode = normalizeBarcode(raw);
+  if (!barcode) return {kind:'invalid'};
+  const matches = products.filter(product => (product.barcodes ?? []).some(value => normalizeBarcode(value) === barcode));
+  if (matches.length === 0) return {kind:'unknown'};
+  if (matches.length > 1) return {kind:'ambiguous'};
+  const productId = matches[0].id;
+  if (allowedIds && !allowedIds.has(productId)) return {kind:'out-of-scope'};
+  return {kind:'match', productId};
+}

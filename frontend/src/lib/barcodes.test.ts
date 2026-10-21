@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeBarcode } from './barcodes';
+import { normalizeBarcode, resolveBarcode } from './barcodes';
 
 describe('retail barcode normalization', () => {
   it.each([
@@ -11,4 +11,19 @@ describe('retail barcode normalization', () => {
   ])('normalizes %s safely', (raw, expected) => {
     expect(normalizeBarcode(raw!)).toBe(expected);
   });
+});
+
+
+describe('barcode resolution',()=>{
+ const catalog=[{id:'14',name:'A',barcodes:['0036000291452'],code:'2000000000022',category:null,pack:null}];
+ it('resolves UPC through canonical EAN without using internal codes',()=>{
+  expect(resolveBarcode('036000291452',catalog,null)).toEqual({kind:'match',productId:'14'});
+  expect(resolveBarcode('2000000000022',catalog,null)).toEqual({kind:'unknown'});
+ });
+ it('rejects invalid, unknown, ambiguous and out-of-scope matches',()=>{
+  expect(resolveBarcode('bad',catalog,null)).toEqual({kind:'invalid'});
+  expect(resolveBarcode('2000000000015',catalog,null)).toEqual({kind:'unknown'});
+  expect(resolveBarcode('036000291452',[...catalog,{...catalog[0],id:'16'}],null)).toEqual({kind:'ambiguous'});
+  expect(resolveBarcode('036000291452',catalog,new Set(['16']))).toEqual({kind:'out-of-scope'});
+ });
 });

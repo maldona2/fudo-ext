@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { BarcodeScanner } from '@/components/BarcodeScanner';
+import { resolveBarcode } from '@/lib/barcodes';
 import { Notice } from '@/components/Notice';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -136,6 +138,18 @@ export function CountPage() {
   const [canStartAgain, setCanStartAgain] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanned, setScanned] = useState<{productId: string} | null>(null);
+  const scanHandled = useRef(false);
+  useEffect(() => {
+    if (!scanned) return;
+    const input = document.getElementById(`q-${scanned.productId}`);
+    input?.scrollIntoView?.({block: 'center', behavior: 'smooth'});
+    input?.focus({preventScroll: true});
+    const timer = window.setTimeout(() => setScanned(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [scanned]);
 
   useEffect(() => {
     Promise.all([productsApi.listForCount(), countLists.list()])
@@ -181,6 +195,26 @@ export function CountPage() {
       // storage full or disabled: the draft just will not survive a reload
     }
   }, [packs]);
+
+  const onDetected = (raw: string) => {
+    if (scanHandled.current) return;
+    scanHandled.current = true;
+    setScanning(false);
+    const resolution = resolveBarcode(raw, list ?? [], recount ? new Set(recount.ids) : scope);
+    if (resolution.kind === 'match') {
+      setQuery('');
+      setScanMessage(null);
+      setScanned({productId: resolution.productId});
+      return;
+    }
+    const messages = {
+      invalid: 'El código no es un EAN o UPC válido. Probá de nuevo o buscá por nombre.',
+      unknown: 'Código no asociado. Buscá el producto por nombre o avisale al dueño.',
+      ambiguous: 'Este código tiene más de una asociación. Avisale al dueño y buscá por nombre.',
+      'out-of-scope': recount ? 'Este producto no está entre los que tenés que volver a contar.' : 'Este producto no pertenece a esta lista.',
+    };
+    setScanMessage(messages[resolution.kind]);
+  };
 
   const unitsPerPack = useMemo(
     () =>
@@ -418,6 +452,7 @@ export function CountPage() {
               key={l.id ?? 'all'}
               type="button"
               aria-pressed={listId === l.id}
+              disabled={scanning}
               onClick={() => setListId(l.id)}
               className={cn(
                 'rounded-full border px-4 py-2 text-base',
@@ -432,9 +467,13 @@ export function CountPage() {
         </div>
       )}
 
+      <Button type="button" variant="outline" className="h-12 w-full" disabled={!list || busy || scanning || incompleteRecountScope || unavailableRecountIds.length > 0} onClick={() => {scanHandled.current = false; setScanMessage(null); setScanned(null); setScanning(true);}}>Escanear</Button>
+      {scanning && <BarcodeScanner onDetected={onDetected} onClose={() => {setScanning(false);}}/>}
+      {scanMessage && <Notice tone="error">{scanMessage}</Notice>}
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" />
         <Input
+          disabled={scanning}
           type="search"
           placeholder="Buscar producto o código"
           aria-label="Buscar producto"
@@ -501,7 +540,7 @@ export function CountPage() {
               if (p.pack) {
                 const closed = parsePacks(packValue);
                 return (
-                  <li key={p.id} className="space-y-2 px-3 py-3">
+                  <li key={p.id} className={cn("space-y-2 px-3 py-3", scanned?.productId === p.id && "ring-2 ring-primary ring-inset")}>
                     <div className="flex items-center gap-2">
                       {total !== undefined && (
                         <Check
@@ -537,6 +576,7 @@ export function CountPage() {
                       <label className="min-w-0 flex-1 space-y-1">
                         <span className="text-sm">Sueltas</span>
                         <Input
+                          id={`q-${p.id}`}
                           aria-label={`Sueltas de ${p.name}`}
                           inputMode="decimal"
                           autoComplete="off"
@@ -586,7 +626,7 @@ export function CountPage() {
               return (
                 <li
                   key={p.id}
-                  className="flex flex-wrap items-center gap-3 px-3 py-2"
+                  className={cn("flex flex-wrap items-center gap-3 px-3 py-2", scanned?.productId === p.id && "ring-2 ring-primary ring-inset")}
                 >
                   {total !== undefined && (
                     <Check
@@ -671,7 +711,7 @@ export function CountPage() {
           <Button
             className="h-12 px-6 text-lg"
             disabled={
-              busy || entries.length + invalid.length === 0 || !recountComplete
+              busy || scanning || entries.length + invalid.length === 0 || !recountComplete
             }
             onClick={() => void save()}
           >

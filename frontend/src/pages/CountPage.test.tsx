@@ -8,16 +8,19 @@ const check = vi.fn();
 const errorMessage = vi.fn(() => 'Algo salió mal. Probá de nuevo.');
 let countListProductIds = ['30', '999', '16'];
 let unavailableProductIds: string[] = [];
+let detectedCode = '2000000000015';
+vi.mock('@/components/BarcodeScanner',()=>({BarcodeScanner:({onDetected,onClose}:{onDetected:(raw:string)=>void;onClose:()=>void})=><div><button onClick={()=>{onDetected(detectedCode);onDetected(detectedCode);}}>Detectar</button><button onClick={onClose}>Cancelar cámara</button></div>}));
 let cocaPack: { units: number; label: string } | null = null;
 
 vi.mock('@/lib/api', () => ({
   products: {
     listForCount: async () =>
       [
-        { id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
-        { id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
+        { barcodes:['2000000000039'], id: '14', name: 'Carne suave', code: '51', category: 'Empanadas' },
+        { barcodes:['2000000000022'], id: '16', name: 'Pollo', code: '53', category: 'Empanadas' },
         {
           id: '30',
+          barcodes:['2000000000015'],
           name: 'Coca 1.5L',
           code: '7',
           category: 'Bebidas',
@@ -51,6 +54,7 @@ import { CountPage } from './CountPage';
 
 describe('CountPage', () => {
   beforeEach(() => {
+    detectedCode = '2000000000015';
     cocaPack = { units: 6, label: 'fardo' };
     localStorage.clear();
     countListProductIds = ['30', '999', '16'];
@@ -795,4 +799,59 @@ describe('CountPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Pollo/ })).toHaveValue('4');
   });
+  it('selects a scanned product after search without changing pack or loose drafts',async()=>{
+    render(<MemoryRouter><CountPage/></MemoryRouter>);
+    await userEvent.type(await screen.findByLabelText('Sueltas de Coca 1.5L'),'3');
+    await userEvent.type(screen.getByLabelText('Fardos de Coca 1.5L'),'2');
+    await userEvent.type(screen.getByRole('searchbox'),'Pollo');
+    await userEvent.click(screen.getByRole('button',{name:'Escanear'}));
+    await userEvent.click(screen.getByRole('button',{name:'Detectar'}));
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    expect(screen.getByLabelText('Sueltas de Coca 1.5L')).toHaveValue('3');
+    expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('2');
+    expect(screen.getByText('= 15 u.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Sueltas de Coca 1.5L')).toHaveFocus();
+  });
+  it('does not include an out-of-list scan or unknown code in the draft',async()=>{
+    render(<MemoryRouter><CountPage/></MemoryRouter>);
+    await userEvent.click(await screen.findByRole('button',{name:'Diario - alto riesgo'}));
+    detectedCode='2000000000039';
+    await userEvent.click(screen.getByRole('button',{name:'Escanear'}));
+    await userEvent.click(screen.getByRole('button',{name:'Detectar'}));
+    expect(screen.getByRole('alert')).toHaveTextContent('no pertenece a esta lista');
+    expect(screen.queryByRole('textbox', {name: /Carne suave/})).not.toBeInTheDocument();
+    expect(localStorage.getItem('count-draft')).toBe('{}');
+    detectedCode='2000000000046';
+    await userEvent.click(screen.getByRole('button',{name:'Escanear'}));
+    await userEvent.click(screen.getByRole('button',{name:'Detectar'}));
+    expect(screen.getByRole('alert')).toHaveTextContent('Código no asociado');
+  });
+  it('scans only required recount products and preserves original non-recounted entries',async()=>{
+    check.mockResolvedValue({checkId:'check-scan',recount:['16']}); create.mockResolvedValue({id:'c1'});
+    render(<MemoryRouter><CountPage/></MemoryRouter>);
+    await userEvent.type(await screen.findByRole('textbox', {name: /Carne suave/}),'8');
+    await userEvent.type(screen.getByRole('textbox', {name: /Pollo/}),'123');
+    await userEvent.click(screen.getByRole('button',{name:'Guardar conteo'}));
+    await screen.findByText(/Volvé a contar 1 producto/);
+    expect(screen.getByRole('textbox', {name: /Pollo/})).toHaveValue('');
+    expect(document.body.textContent).not.toMatch(/123|Faltan|Sobran|esperado/);
+    detectedCode='2000000000015';
+    await userEvent.click(screen.getByRole('button',{name:'Escanear'}));
+    await userEvent.click(screen.getByRole('button',{name:'Detectar'}));
+    expect(screen.getByRole('alert')).toHaveTextContent('no está entre los que tenés que volver a contar');
+    detectedCode='2000000000022';
+    await userEvent.click(screen.getByRole('button',{name:'Escanear'}));
+    await userEvent.click(screen.getByRole('button',{name:'Detectar'}));
+    await userEvent.type(screen.getByRole('textbox', {name: /Pollo/}),'4');
+    await userEvent.click(screen.getByRole('button',{name:'Guardar conteo'}));
+    expect(create).toHaveBeenCalledWith({checkId:'check-scan',entries:[{productId:'14',counted:8},{productId:'16',counted:4}]});
+  });
+  it('keeps quantities when camera is cancelled',async()=>{
+    render(<MemoryRouter><CountPage/></MemoryRouter>);
+    await userEvent.type(await screen.findByRole('textbox', {name: /Pollo/}),'7');
+    await userEvent.click(screen.getByRole('button',{name:'Escanear'}));
+    await userEvent.click(screen.getByRole('button',{name:'Cancelar cámara'}));
+    expect(screen.getByRole('textbox', {name: /Pollo/})).toHaveValue('7');
+  });
+
 });
