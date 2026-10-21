@@ -74,7 +74,9 @@ export function BarcodeScanner({
         </Button>
       </div>
       <p>Apuntá al código completo del envase, con buena luz.</p>
+      {/* ZXing finalizes its preview asynchronously; retries need their own element. */}
       <video
+        key={attempt}
         ref={video}
         aria-label="Vista de la cámara"
         autoPlay

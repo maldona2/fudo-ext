@@ -47,3 +47,13 @@ Las asociaciones y listas se guardan en nuestra base. FUDO continúa de solo lec
 | Android | Pendiente | Chrome, pendiente | Pendiente | Pendiente | Pendiente | No ejecutado |
 
 Para reportar un fallo: indicá el paso, modelo, SO, navegador, código usado, qué esperabas y qué ocurrió. No incluyas contraseñas ni tokens.
+
+## Verificación de implementación — 20/10/2026
+
+- Node 24.22.0: 110 tests frontend y 221 backend aprobados, sin omisiones; incluyen decodificación real de las cuatro imágenes y PostgreSQL temporal aislado.
+- `npm run lint`: aprobado, con dos advertencias preexistentes de Fast Refresh en button/badge.
+- `npm run format:check`, `npm run ai:check`, builds frontend/backend y chequeo TypeScript del frontend: aprobados.
+- Regenerar las imágenes y la hoja HTML produce los mismos hashes.
+- Revisión independiente: dos hallazgos importantes de ciclo de vida de cámara corregidos con pruebas RED→GREEN. Cada reintento tiene un video distinto; los errores fatales posteriores al inicio muestran aviso y permiten reintentar.
+- PostgreSQL usado para integración local: versión 16. La compatibilidad con PostgreSQL 15 se apoya en SQL estándar utilizado, sin prueba local de esa versión exacta.
+- Aceptación física iPhone/Android: pendiente. Despliegue de esta funcionalidad a Railway: pendiente.

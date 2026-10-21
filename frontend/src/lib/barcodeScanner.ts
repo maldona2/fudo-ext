@@ -53,8 +53,16 @@ export async function startBarcodeScanner({
       stop();
       return { stop };
     }
-    const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] =
-      await Promise.all([import('@zxing/browser'), import('@zxing/library')]);
+    const [
+      { BrowserMultiFormatReader },
+      {
+        BarcodeFormat,
+        DecodeHintType,
+        NotFoundException,
+        ChecksumException,
+        FormatException,
+      },
+    ] = await Promise.all([import('@zxing/browser'), import('@zxing/library')]);
     if (stopped) {
       stop();
       return { stop };
@@ -66,8 +74,21 @@ export async function startBarcodeScanner({
       ],
     ]);
     const reader = new BrowserMultiFormatReader(hints);
-    controls = await reader.decodeFromStream(stream, video, (result) => {
-      if (stopped || !result) return;
+    controls = await reader.decodeFromStream(stream, video, (result, error) => {
+      if (stopped) return;
+      if (
+        error &&
+        !(
+          error instanceof NotFoundException ||
+          error instanceof ChecksumException ||
+          error instanceof FormatException
+        )
+      ) {
+        stop();
+        onError('failure');
+        return;
+      }
+      if (!result) return;
       const raw = result.getText();
       stop();
       onCode(raw);

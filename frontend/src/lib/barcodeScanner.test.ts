@@ -8,6 +8,11 @@ vi.mock('@zxing/browser', () => ({
     decodeFromStream = decode;
   },
 }));
+import {
+  NotFoundException,
+  ChecksumException,
+  FormatException,
+} from '@zxing/library';
 import { startBarcodeScanner } from './barcodeScanner';
 
 describe('camera lifecycle', () => {
@@ -100,5 +105,29 @@ describe('camera lifecycle', () => {
     decode.mock.calls[0][2]({ getText: () => '2000000000015' });
     expect(stopTrack).toHaveBeenCalled();
     expect(settings.onCode).not.toHaveBeenCalled();
+  });
+  it('reports a fatal decoder callback after startup and releases tracks', async () => {
+    const settings = options();
+    await startBarcodeScanner(settings);
+    decode.mock.calls[0][2](undefined, new Error('canvas failed'));
+    expect(settings.onError).toHaveBeenCalledWith('failure');
+    expect(stopTrack).toHaveBeenCalled();
+    decode.mock.calls[0][2]({ getText: () => '2000000000015' });
+    expect(settings.onCode).not.toHaveBeenCalled();
+  });
+  it('continues scanning after expected no-match decoding exceptions', async () => {
+    const settings = options();
+    await startBarcodeScanner(settings);
+    const callback = decode.mock.calls[0][2];
+    for (const error of [
+      new NotFoundException(),
+      new ChecksumException(),
+      new FormatException(),
+    ])
+      callback(undefined, error);
+    expect(settings.onError).not.toHaveBeenCalled();
+    expect(stopTrack).not.toHaveBeenCalled();
+    callback({ getText: () => '2000000000015' });
+    expect(settings.onCode).toHaveBeenCalledWith('2000000000015');
   });
 });
