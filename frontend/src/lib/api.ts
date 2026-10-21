@@ -1,5 +1,6 @@
 import axios, { isAxiosError } from 'axios';
 import type {
+  ProductBarcode,
   CountDetail,
   CountList,
   CountProduct,
@@ -71,6 +72,11 @@ export const products = {
     api
       .get<{ products: CountProduct[] }>('/products')
       .then((r) => r.data.products),
+};
+
+export const productBarcodes = {
+  save: (value: ProductBarcode) => api.put('/product-barcodes', value).then(() => undefined),
+  remove: ({productId, barcode}: ProductBarcode) => api.delete(`/product-barcodes/${encodeURIComponent(productId)}/${encodeURIComponent(barcode)}`).then(() => undefined),
 };
 
 export const productPacks = {

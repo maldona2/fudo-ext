@@ -37,6 +37,7 @@ export function Layout() {
                 Bultos
               </NavLink>
             )}
+            {isOwner && <NavLink to="/codigos" className={link}>Códigos</NavLink>}
             {isOwner && (
               <NavLink to="/usuarios" className={link}>
                 Usuarios

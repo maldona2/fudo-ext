@@ -5,6 +5,7 @@ import {
   Routes,
 } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { BarcodesPage } from '@/pages/BarcodesPage';
 import { Layout } from '@/components/Layout';
 import { Notice } from '@/components/Notice';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -46,6 +47,7 @@ function App() {
             }
           >
             <Route path="/" element={<Home />} />
+            <Route path="/codigos" element={<RequireUser role="owner"><BarcodesPage /></RequireUser>} />
             <Route path="/contar" element={<CountPage />} />
             <Route
               path="/panel"
