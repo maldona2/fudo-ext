@@ -73,17 +73,26 @@ export function BarcodeScanner({
           Cerrar cámara
         </Button>
       </div>
-      <p>Apuntá al código completo del envase, con buena luz.</p>
-      {/* ZXing finalizes its preview asynchronously; retries need their own element. */}
-      <video
-        key={attempt}
-        ref={video}
-        aria-label="Vista de la cámara"
-        autoPlay
-        muted
-        playsInline
-        className="aspect-video w-full rounded-md bg-black object-contain"
-      />
+      <p>
+        Centrá el código completo, con buena luz. Alejá un poco el envase si se
+        ve borroso.
+      </p>
+      <div className="relative aspect-video w-full overflow-hidden rounded-md bg-black">
+        {/* ZXing finalizes its preview asynchronously; retries need their own element. */}
+        <video
+          key={attempt}
+          ref={video}
+          aria-label="Vista de la cámara"
+          autoPlay
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-[8%] inset-y-[25%] rounded-md border-2 border-white/80"
+        />
+      </div>
       {error && <Notice tone="error">{messages[error]}</Notice>}
       {paused && (
         <Notice>Cámara pausada. Tocá Reintentar para volver a escanear.</Notice>

@@ -15,6 +15,12 @@ describe('BarcodeScanner', () => {
     start.mockReset().mockResolvedValue({ stop });
     stop.mockReset();
   });
+  it('fills a fixed horizontal viewport even for a portrait camera stream', () => {
+    render(<BarcodeScanner onDetected={vi.fn()} onClose={vi.fn()} />);
+    const video = screen.getByLabelText('Vista de la cámara');
+    expect(video).toHaveClass('h-full', 'w-full', 'object-cover');
+    expect(video.parentElement).toHaveClass('aspect-video', 'overflow-hidden');
+  });
   it('offers manual search and retry after permission is denied', async () => {
     start.mockImplementation(async (options) => {
       options.onError('permission');

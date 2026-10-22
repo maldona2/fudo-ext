@@ -47,8 +47,37 @@ export async function startBarcodeScanner({
     }
     stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: { ideal: 'environment' } },
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        aspectRatio: { ideal: 16 / 9 },
+      },
     });
+    if (stopped) {
+      stop();
+      return { stop };
+    }
+    // Focus controls vary by browser and hardware; they must never block scanning.
+    try {
+      const track = stream.getVideoTracks?.()[0];
+      const capabilities = track?.getCapabilities?.() as
+        | (ReturnType<MediaStreamTrack['getCapabilities']> & {
+            focusMode?: string[];
+          })
+        | undefined;
+      if (track && capabilities?.focusMode?.includes('continuous')) {
+        const constraints = {
+          ...track.getConstraints(),
+          advanced: [{ focusMode: 'continuous' }] as (ReturnType<
+            MediaStreamTrack['getConstraints']
+          > & { focusMode: string })[],
+        };
+        await track.applyConstraints(constraints);
+      }
+    } catch {
+      // Keep the camera's default focus when optional controls are rejected.
+    }
     if (stopped) {
       stop();
       return { stop };

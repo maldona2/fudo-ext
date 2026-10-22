@@ -41,6 +41,59 @@ describe('camera lifecycle', () => {
     onCode: vi.fn(),
     onError: vi.fn(),
   });
+  it('requests a detailed rear-camera image without mandatory dimensions', async () => {
+    await startBarcodeScanner(options());
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: false,
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        aspectRatio: { ideal: 16 / 9 },
+      },
+    });
+  });
+  it.each([false, true])(
+    'keeps scanning if continuous focus fails: %s',
+    async (reject) => {
+      const applyConstraints = reject
+        ? vi.fn().mockRejectedValue(new Error('unsupported focus'))
+        : vi.fn().mockResolvedValue(undefined);
+      getUserMedia.mockResolvedValue({
+        getTracks: () => [{ stop: stopTrack }],
+        getVideoTracks: () => [
+          {
+            getCapabilities: () => ({ focusMode: ['manual', 'continuous'] }),
+            getConstraints: () => ({ width: { ideal: 1920 } }),
+            applyConstraints,
+          },
+        ],
+      });
+      const settings = options();
+      await startBarcodeScanner(settings);
+      expect(applyConstraints).toHaveBeenCalledWith({
+        width: { ideal: 1920 },
+        advanced: [{ focusMode: 'continuous' }],
+      });
+      expect(decode).toHaveBeenCalled();
+      expect(settings.onError).not.toHaveBeenCalled();
+    }
+  );
+  it('does not force unsupported focus modes', async () => {
+    const applyConstraints = vi.fn();
+    getUserMedia.mockResolvedValue({
+      getTracks: () => [{ stop: stopTrack }],
+      getVideoTracks: () => [
+        {
+          getCapabilities: () => ({ focusMode: ['manual'] }),
+          applyConstraints,
+        },
+      ],
+    });
+    await startBarcodeScanner(options());
+    expect(applyConstraints).not.toHaveBeenCalled();
+    expect(decode).toHaveBeenCalled();
+  });
   it('stops tracks when cancelled before permission resolves', async () => {
     let resolve!: (stream: MediaStream) => void;
     getUserMedia.mockReturnValue(
