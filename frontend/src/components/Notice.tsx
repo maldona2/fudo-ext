@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AlertCircle, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function Notice({
@@ -12,15 +13,21 @@ export function Notice({
     <div
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'rounded-lg border px-4 py-3 text-base',
+        'flex items-start gap-3 rounded-xl border px-4 py-3 text-base font-medium',
         tone === 'error' &&
-          'border-destructive/40 bg-destructive/10 text-destructive',
+          'border-danger-ring bg-danger-soft text-danger-foreground',
         tone === 'success' &&
-          'border-emerald-600/30 bg-emerald-50 text-emerald-800',
-        tone === 'info' && 'bg-background'
+          'border-success/30 bg-success-soft text-success-foreground',
+        tone === 'info' && 'border-border bg-card text-foreground-medium'
       )}
     >
-      {children}
+      {tone === 'error' && (
+        <AlertCircle aria-hidden className="mt-0.5 size-5 shrink-0" />
+      )}
+      {tone === 'success' && (
+        <Check aria-hidden className="mt-0.5 size-5 shrink-0" />
+      )}
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

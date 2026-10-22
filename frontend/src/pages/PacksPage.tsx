@@ -48,46 +48,52 @@ function PackRow({
       <fieldset
         aria-label={product.name}
         disabled={busy}
-        className="space-y-3 rounded-lg border bg-background p-3"
+        className="space-y-3 rounded-2xl border border-border bg-card p-4"
       >
-        <legend className="px-1 font-medium">{product.name}</legend>
+        <legend className="px-1 text-[17px] font-semibold">
+          {product.name}
+        </legend>
         {product.code && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-foreground-secondary">
             Código FUDO: {product.code}
           </p>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor={`units-${product.id}`}>Unidades por bulto</Label>
-            <Input
-              id={`units-${product.id}`}
-              inputMode="numeric"
-              value={units}
-              onChange={(event) => setUnits(event.target.value)}
-              className="h-12"
-            />
-          </div>
-          <div className="space-y-2">
+        <div className="flex items-end gap-2">
+          <span aria-hidden className="pb-4 text-lg font-extrabold">
+            1
+          </span>
+          <div className="min-w-0 flex-1 space-y-2">
             <Label htmlFor={`label-${product.id}`}>Etiqueta</Label>
             <Input
               id={`label-${product.id}`}
               maxLength={20}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
-              className="h-12"
+            />
+          </div>
+          <span aria-hidden className="pb-4 text-lg font-extrabold">
+            =
+          </span>
+          <div className="min-w-0 flex-1 space-y-2">
+            <Label htmlFor={`units-${product.id}`}>Unidades por bulto</Label>
+            <Input
+              id={`units-${product.id}`}
+              inputMode="numeric"
+              value={units}
+              onChange={(event) => setUnits(event.target.value)}
             />
           </div>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="flex gap-2">
-          <Button type="submit" className="h-12 flex-1">
+          <Button type="submit" size="md" className="flex-1">
             Guardar
           </Button>
           {product.pack && (
             <Button
               type="button"
-              variant="outline"
-              className="h-12"
+              variant="destructive"
+              size="md"
               onClick={() => onRemove(product.id)}
             >
               Quitar
@@ -185,8 +191,8 @@ export function PacksPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Bultos</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-extrabold">Bultos</h1>
+        <p className="text-sm font-medium text-foreground-secondary">
           Definí cuántas unidades trae cada cajón, fardo o bulto.
         </p>
       </div>
@@ -194,11 +200,16 @@ export function PacksPage() {
       {message && <Notice tone="success">{message}</Notice>}
       <Card>
         <CardHeader>
-          <CardTitle>Pegar planilla</CardTitle>
+          <CardTitle className="text-xl font-extrabold">
+            Pegar planilla
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Label htmlFor="pack-sheet">Planilla de bultos</Label>
-          <p id="sheet-help" className="text-sm text-muted-foreground">
+          <p
+            id="sheet-help"
+            className="text-sm font-medium text-foreground-secondary"
+          >
             Una fila por producto: código FUDO o nombre;unidades;etiqueta.
             También podés pegar columnas con tabulaciones o comas. La etiqueta
             es opcional.
@@ -206,7 +217,7 @@ export function PacksPage() {
           <textarea
             id="pack-sheet"
             aria-describedby="sheet-help"
-            className="min-h-32 w-full rounded-md border bg-background p-3 text-base"
+            className="min-h-32 w-full rounded-xl border-2 border-field bg-card p-3 font-mono text-base outline-none focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-ring-soft"
             value={sheet}
             disabled={busy}
             onChange={(event) => setSheet(event.target.value)}
@@ -223,7 +234,7 @@ export function PacksPage() {
             </Notice>
           )}
           {preview.packs.length > 0 && (
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-1 rounded-xl bg-primary-soft p-3 text-sm font-semibold text-primary-soft-foreground">
               {preview.packs.map((pack) => (
                 <li key={pack.productId}>
                   {
@@ -236,7 +247,8 @@ export function PacksPage() {
             </ul>
           )}
           <Button
-            className="h-12 w-full"
+            size="lg"
+            className="w-full"
             disabled={busy || preview.packs.length === 0}
             onClick={() => void save(preview.packs, true)}
           >
@@ -250,14 +262,13 @@ export function PacksPage() {
           id="pack-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          className="h-12"
           placeholder="Nombre o código FUDO"
         />
       </div>
       {groups.length === 0 && <Notice>No hay productos para mostrar.</Notice>}
       {groups.map(([category, items]) => (
         <section key={category} className="space-y-3" aria-label={category}>
-          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+          <h2 className="text-xs font-bold tracking-[0.08em] text-foreground-secondary uppercase">
             {category}
           </h2>
           {items.map((product) => (

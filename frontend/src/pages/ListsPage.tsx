@@ -87,19 +87,16 @@ function ListEditor({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">
+        <CardTitle className="text-xl font-extrabold">
           {initial.id ? 'Editar lista' : 'Nueva lista'}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="list-name" className="text-base">
-              Nombre de la lista
-            </Label>
+            <Label htmlFor="list-name">Nombre de la lista</Label>
             <Input
               id="list-name"
-              className="h-12 text-lg"
               placeholder="Ej.: Diario - alto riesgo"
               maxLength={80}
               value={name}
@@ -110,17 +107,17 @@ function ListEditor({
 
           {groups.map(([category, items]) => (
             <fieldset key={category} className="space-y-1">
-              <legend className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+              <legend className="mb-1 text-xs font-bold tracking-[0.08em] text-foreground-secondary uppercase">
                 {category}
               </legend>
               {items.map((p) => (
                 <label
                   key={p.id}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2 text-base hover:bg-muted"
+                  className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-2 text-base font-semibold hover:bg-primary-soft/50"
                 >
                   <input
                     type="checkbox"
-                    className="size-5"
+                    className="size-[26px] shrink-0 accent-primary"
                     checked={order.includes(p.id)}
                     onChange={() => toggle(p.id)}
                   />
@@ -132,7 +129,7 @@ function ListEditor({
 
           {order.length > 0 && (
             <section aria-labelledby="walking-order" className="space-y-2">
-              <h2 id="walking-order" className="text-base font-semibold">
+              <h2 id="walking-order" className="text-base font-extrabold">
                 Orden de recorrido
               </h2>
               <ol className="space-y-2">
@@ -142,15 +139,23 @@ function ListEditor({
                   return (
                     <li
                       key={id}
-                      className="flex items-center gap-2 rounded-lg border p-2"
+                      className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2"
                     >
-                      <span className="min-w-0 flex-1 break-words">
-                        {index + 1}. {product.name}
+                      <span
+                        aria-hidden
+                        className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-extrabold text-primary-soft-foreground"
+                      >
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 font-semibold break-words">
+                        <span className="sr-only">{index + 1}. </span>
+                        {product.name}
                       </span>
                       <Button
                         type="button"
                         variant="outline"
-                        className="size-12 shrink-0"
+                        size="icon-lg"
+                        className="shrink-0 disabled:border-uncounted-border disabled:text-uncounted-border"
                         aria-label={`Subir ${product.name}`}
                         disabled={index === 0}
                         onClick={() => move(index, -1)}
@@ -160,7 +165,8 @@ function ListEditor({
                       <Button
                         type="button"
                         variant="outline"
-                        className="size-12 shrink-0"
+                        size="icon-lg"
+                        className="shrink-0 disabled:border-uncounted-border disabled:text-uncounted-border"
                         aria-label={`Bajar ${product.name}`}
                         disabled={index === order.length - 1}
                         onClick={() => move(index, 1)}
@@ -175,26 +181,29 @@ function ListEditor({
           )}
 
           {error && <Notice tone="error">{error}</Notice>}
-          <div className="flex gap-2">
-            <Button
-              type="submit"
-              className="h-12 flex-1 text-lg"
-              disabled={busy || order.length === 0 || name.trim() === ''}
-            >
-              Guardar lista
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12 text-lg"
-              onClick={onCancel}
-            >
-              Cancelar
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-foreground-secondary">
             {plural(order.length, 'producto elegido', 'productos elegidos')}
           </p>
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card shadow-[0_-6px_20px_rgba(29,21,64,0.08)] lg:left-[248px]">
+            <div className="mx-auto flex max-w-3xl gap-2 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),16px)] lg:max-w-[960px]">
+              <Button
+                type="submit"
+                size="lg"
+                className="flex-1"
+                disabled={busy || order.length === 0 || name.trim() === ''}
+              >
+                Guardar lista
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onCancel}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
         </form>
       </CardContent>
     </Card>
@@ -255,8 +264,8 @@ export function ListsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Listas de conteo</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-extrabold">Listas de conteo</h1>
+        <p className="text-sm font-medium text-foreground-secondary">
           Armá listas cortas para contar seguido lo que más se pierde, por
           ejemplo un conteo diario de los productos de mayor riesgo.
         </p>
@@ -267,11 +276,13 @@ export function ListsPage() {
         {lists.map((l) => (
           <li
             key={l.id}
-            className="flex items-center gap-2 rounded-lg border bg-background px-4 py-3"
+            className="flex items-center gap-1 rounded-2xl border border-border bg-card px-4 py-3"
           >
-            <span className="flex-1">
-              <span className="block text-base font-medium">{l.name}</span>
-              <span className="text-sm text-muted-foreground">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[17px] font-semibold break-words">
+                {l.name}
+              </span>
+              <span className="text-sm font-medium text-foreground-secondary">
                 {plural(l.productIds.length, 'producto', 'productos')}
               </span>
             </span>
@@ -292,6 +303,7 @@ export function ListsPage() {
             <Button
               variant="ghost"
               size="icon-lg"
+              className="text-destructive hover:bg-danger-soft hover:text-destructive"
               aria-label={`Borrar ${l.name}`}
               onClick={() => void remove(l)}
             >
@@ -300,12 +312,17 @@ export function ListsPage() {
           </li>
         ))}
       </ul>
-      <Button
-        className="h-12 w-full text-lg"
-        onClick={() => setEditing({ id: null, name: '', productIds: [] })}
-      >
-        Nueva lista
-      </Button>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card shadow-[0_-6px_20px_rgba(29,21,64,0.08)] lg:left-[248px]">
+        <div className="mx-auto max-w-3xl px-4 pt-3 pb-[max(env(safe-area-inset-bottom),16px)] lg:max-w-[960px]">
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => setEditing({ id: null, name: '', productIds: [] })}
+          >
+            Nueva lista
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

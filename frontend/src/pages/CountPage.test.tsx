@@ -113,7 +113,7 @@ describe('CountPage', () => {
       '10'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(create).toHaveBeenCalledWith({
@@ -135,10 +135,10 @@ describe('CountPage', () => {
       '3'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
-    expect(await screen.findByText('Conteo guardado ✓')).toBeInTheDocument();
+    expect(await screen.findByText('Conteo guardado')).toBeInTheDocument();
     expect(screen.queryByText(/Faltan|Sobran|sistema/)).not.toBeInTheDocument();
   });
 
@@ -154,7 +154,7 @@ describe('CountPage', () => {
       'tres'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(create).not.toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe('CountPage', () => {
     ).not.toBeInTheDocument();
     await userEvent.type(screen.getByRole('textbox', { name: /Pollo/ }), '3');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     // Carne suave was typed before switching: it is outside the list now.
@@ -246,7 +246,7 @@ describe('CountPage', () => {
     expect(screen.getByRole('textbox', { name: /Pollo/ })).toHaveValue('0');
     expect(screen.getByLabelText('Contado: Pollo')).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).toHaveBeenCalledWith({
       entries: [{ productId: '16', counted: 0 }],
@@ -271,9 +271,9 @@ describe('CountPage', () => {
     );
     expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('');
     expect(screen.getByLabelText('Sueltas de Coca 1.5L')).toHaveValue('0');
-    expect(screen.getByText('= 0 u.')).toBeInTheDocument();
+    expect(screen.getByText('0 unidades')).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).toHaveBeenCalledWith({
       entries: [{ productId: '30', counted: 0 }],
@@ -323,9 +323,9 @@ describe('CountPage', () => {
       '3'
     );
     await userEvent.type(screen.getByLabelText('Sueltas de Coca 1.5L'), '2');
-    expect(screen.getByText('= 20 u.')).toBeInTheDocument();
+    expect(screen.getByText('20 unidades')).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).toHaveBeenCalledWith({
       entries: [{ productId: '30', counted: 20 }],
@@ -345,7 +345,7 @@ describe('CountPage', () => {
     await userEvent.click(button);
     await userEvent.click(button);
     expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('2');
-    expect(screen.getByText('= 12 u.')).toBeInTheDocument();
+    expect(screen.getByText('12 unidades')).toBeInTheDocument();
   });
 
   it('keeps packs typed after a reload', async () => {
@@ -381,7 +381,7 @@ describe('CountPage', () => {
     expect(packs).toHaveAttribute('aria-invalid', 'true');
     expect(screen.queryByText(/= .* u\./)).not.toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent('no se entienden');
@@ -398,7 +398,7 @@ describe('CountPage', () => {
       '5'
     );
     expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('');
-    expect(screen.getByText('= 5 u.')).toBeInTheDocument();
+    expect(screen.getByText('5 unidades')).toBeInTheDocument();
   });
 
   it('lets the counter discard stale packs explicitly and submit preserved loose units', async () => {
@@ -419,7 +419,7 @@ describe('CountPage', () => {
     ).toHaveTextContent('3');
     expect(localStorage.getItem('count-draft-packs')).toBe('{"30":"3"}');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).not.toHaveBeenCalled();
 
@@ -433,7 +433,7 @@ describe('CountPage', () => {
       screen.queryByText(/Ya no hay un bulto configurado/)
     ).not.toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).toHaveBeenCalledWith({
       entries: [{ productId: '30', counted: 2 }],
@@ -459,7 +459,7 @@ describe('CountPage', () => {
       '123'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(window.confirm).toHaveBeenCalled();
@@ -470,9 +470,15 @@ describe('CountPage', () => {
       ],
     });
     expect(
-      await screen.findByText(
-        'Volvé a contar 1 producto. Contalos de nuevo con calma.'
+      await screen.findByText('Volvé a contar estos productos')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Es 1 producto. Contalos de nuevo con calma y cargá lo que hay.'
       )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Guardar recuento' })
     ).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Pollo/ })).toHaveValue('');
     expect(
@@ -507,14 +513,14 @@ describe('CountPage', () => {
       '3'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     await userEvent.type(
       await screen.findByRole('textbox', { name: /Pollo/ }),
       '4'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(check).toHaveBeenCalledTimes(1);
@@ -538,7 +544,7 @@ describe('CountPage', () => {
       '3'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(create).toHaveBeenCalledWith({
@@ -632,7 +638,7 @@ describe('CountPage', () => {
       entryIds: ['30'],
     });
     expect(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     ).toBeDisabled();
   });
 
@@ -651,7 +657,7 @@ describe('CountPage', () => {
     );
     await userEvent.type(screen.getByLabelText('Fardos de Coca 1.5L'), '1');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     await userEvent.clear(await screen.findByLabelText('Sueltas de Coca 1.5L'));
     await userEvent.type(screen.getByLabelText('Sueltas de Coca 1.5L'), '3');
@@ -669,7 +675,7 @@ describe('CountPage', () => {
     );
     expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('2');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).toHaveBeenCalledWith({
       entries: [{ productId: '30', counted: 15 }],
@@ -700,13 +706,13 @@ describe('CountPage', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     ).toBeDisabled();
     await userEvent.click(
       screen.getByRole('button', { name: 'Empezar de nuevo' })
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(check).toHaveBeenCalledWith({
@@ -753,7 +759,7 @@ describe('CountPage', () => {
     ).not.toBeInTheDocument();
     await userEvent.type(carne, '4');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(create).toHaveBeenCalledWith({
@@ -788,7 +794,7 @@ describe('CountPage', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     ).toBeDisabled();
     await userEvent.click(
       screen.getByRole('button', { name: 'Empezar de nuevo' })
@@ -819,7 +825,7 @@ describe('CountPage', () => {
       '4'
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -851,7 +857,7 @@ describe('CountPage', () => {
     expect(screen.getByRole('searchbox')).toHaveValue('');
     expect(screen.getByLabelText('Sueltas de Coca 1.5L')).toHaveValue('3');
     expect(screen.getByLabelText('Fardos de Coca 1.5L')).toHaveValue('2');
-    expect(screen.getByText('= 15 u.')).toBeInTheDocument();
+    expect(screen.getByText('15 unidades')).toBeInTheDocument();
     expect(screen.getByLabelText('Sueltas de Coca 1.5L')).toHaveFocus();
   });
   it('does not include an out-of-list scan or unknown code in the draft', async () => {
@@ -892,9 +898,9 @@ describe('CountPage', () => {
     );
     await userEvent.type(screen.getByRole('textbox', { name: /Pollo/ }), '123');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
-    await screen.findByText(/Volvé a contar 1 producto/);
+    await screen.findByText(/Volvé a contar estos productos/);
     expect(screen.getByRole('textbox', { name: /Pollo/ })).toHaveValue('');
     expect(document.body.textContent).not.toMatch(/123|Faltan|Sobran|esperado/);
     detectedCode = '2000000000015';
@@ -908,7 +914,7 @@ describe('CountPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Detectar' }));
     await userEvent.type(screen.getByRole('textbox', { name: /Pollo/ }), '4');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Guardar conteo' })
+      screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
     );
     expect(create).toHaveBeenCalledWith({
       checkId: 'check-scan',
