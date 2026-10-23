@@ -18,6 +18,9 @@
     "fixtures:barcodes": "node scripts/generate-barcode-fixtures.mjs"
   },
   "dependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/utilities": "3.2.2",
     "@zxing/browser": "0.2.1",
     "@zxing/library": "0.23.0",
     "axios": "^1.7.9",

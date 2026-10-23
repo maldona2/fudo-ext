@@ -1,6 +1,7 @@
+import { WalkingOrder } from '@/components/WalkingOrder';
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowUp, ArrowDown, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,10 +34,7 @@ function ListEditor({
 }) {
   const [name, setName] = useState(initial.name);
   const [order, setOrder] = useState(initial.productIds);
-  const productsById = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products]
-  );
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,15 +53,6 @@ function ListEditor({
         ? current.filter((item) => item !== id)
         : [...current, id]
     );
-
-  const move = (index: number, direction: -1 | 1) =>
-    setOrder((current) => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -99,6 +88,7 @@ function ListEditor({
               id="list-name"
               placeholder="Ej.: Diario - alto riesgo"
               maxLength={80}
+              disabled={busy}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -118,6 +108,7 @@ function ListEditor({
                   <input
                     type="checkbox"
                     className="size-[26px] shrink-0 accent-primary"
+                    disabled={busy}
                     checked={order.includes(p.id)}
                     onChange={() => toggle(p.id)}
                   />
@@ -127,58 +118,13 @@ function ListEditor({
             </fieldset>
           ))}
 
-          {order.length > 0 && (
-            <section aria-labelledby="walking-order" className="space-y-2">
-              <h2 id="walking-order" className="text-base font-extrabold">
-                Orden de recorrido
-              </h2>
-              <ol className="space-y-2">
-                {order.map((id, index) => {
-                  const product = productsById.get(id);
-                  if (!product) return null;
-                  return (
-                    <li
-                      key={id}
-                      className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2"
-                    >
-                      <span
-                        aria-hidden
-                        className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-extrabold text-primary-soft-foreground"
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 font-semibold break-words">
-                        <span className="sr-only">{index + 1}. </span>
-                        {product.name}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-lg"
-                        className="shrink-0 disabled:border-uncounted-border disabled:text-uncounted-border"
-                        aria-label={`Subir ${product.name}`}
-                        disabled={index === 0}
-                        onClick={() => move(index, -1)}
-                      >
-                        <ArrowUp aria-hidden="true" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-lg"
-                        className="shrink-0 disabled:border-uncounted-border disabled:text-uncounted-border"
-                        aria-label={`Bajar ${product.name}`}
-                        disabled={index === order.length - 1}
-                        onClick={() => move(index, 1)}
-                      >
-                        <ArrowDown aria-hidden="true" />
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
-          )}
+          <WalkingOrder
+            products={products}
+            order={order}
+            onOrderChange={setOrder}
+            disabled={busy}
+            onDraggingChange={setDragging}
+          />
 
           {error && <Notice tone="error">{error}</Notice>}
           <p className="text-sm font-medium text-foreground-secondary">
@@ -190,7 +136,9 @@ function ListEditor({
                 type="submit"
                 size="lg"
                 className="flex-1"
-                disabled={busy || order.length === 0 || name.trim() === ''}
+                disabled={
+                  busy || dragging || order.length === 0 || name.trim() === ''
+                }
               >
                 Guardar lista
               </Button>
@@ -198,6 +146,7 @@ function ListEditor({
                 type="button"
                 variant="outline"
                 size="lg"
+                disabled={busy}
                 onClick={onCancel}
               >
                 Cancelar
