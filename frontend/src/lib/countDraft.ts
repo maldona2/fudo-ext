@@ -12,10 +12,11 @@ export function parseQuantity(text: string): number | null {
 }
 
 export function parsePacks(text: string): number | null {
-  const value = text.trim();
-  if (value === '') return null;
-  const parsed = Number(value);
-  return /^\d+$/.test(value) && Number.isSafeInteger(parsed) ? parsed : NaN;
+  const parsed = parseQuantity(text);
+  if (parsed === null) return null;
+  return Number.isFinite(parsed) && parsed <= Number.MAX_SAFE_INTEGER
+    ? parsed
+    : NaN;
 }
 
 export function draftToEntries(

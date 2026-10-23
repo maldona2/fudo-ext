@@ -40,11 +40,20 @@ describe('draftToEntries', () => {
 });
 
 describe('parsePacks', () => {
-  it('accepts only non-negative whole closed packs', () => {
+  it('accepts non-negative decimal packs with comma or dot', () => {
     expect(parsePacks(' 3 ')).toBe(3);
     expect(parsePacks('0')).toBe(0);
+    expect(parsePacks('1,5')).toBe(1.5);
+    expect(parsePacks('1.5')).toBe(1.5);
     expect(parsePacks(' ')).toBeNull();
-    for (const value of ['1,5', '1.5', '-1', 'abc', '9'.repeat(400)]) {
+    for (const value of [
+      '-1',
+      'abc',
+      '1,,5',
+      '1e3',
+      '9007199254740992',
+      '9'.repeat(400),
+    ]) {
       expect(parsePacks(value)).toBeNaN();
     }
   });
@@ -69,8 +78,8 @@ describe('draftToEntries with packs', () => {
     ]);
   });
 
-  it('marks fractional or non numeric packs as invalid', () => {
-    for (const value of ['1,5', 'abc']) {
+  it('marks malformed packs as invalid', () => {
+    for (const value of ['1,,5', 'abc']) {
       expect(draftToEntries({ '30': '5' }, { '30': value }, sizes)).toEqual({
         entries: [],
         invalid: ['30'],
@@ -94,4 +103,10 @@ describe('draftToEntries with packs', () => {
       )
     ).toEqual({ entries: [{ productId: '30', counted: 12.124 }], invalid: [] });
   });
+});
+
+it('converts fractional packs and loose units without integer rounding', () => {
+  expect(
+    draftToEntries({ '30': '2' }, { '30': '1,5' }, new Map([['30', 6]]))
+  ).toEqual({ entries: [{ productId: '30', counted: 11 }], invalid: [] });
 });

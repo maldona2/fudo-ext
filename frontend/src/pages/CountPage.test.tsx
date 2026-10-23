@@ -335,6 +335,30 @@ describe('CountPage', () => {
     expect(localStorage.getItem('count-draft')).toBe('{}');
   });
 
+  it.each(['1,5', '1.5'])(
+    'saves fractional packs entered as %s',
+    async (value) => {
+      create.mockResolvedValue({ id: 'c1' });
+      render(
+        <MemoryRouter>
+          <CountPage />
+        </MemoryRouter>
+      );
+      const field = await screen.findByLabelText('Fardos de Coca 1.5L');
+      expect(field).toHaveAttribute('inputmode', 'decimal');
+      await userEvent.type(field, value);
+      await userEvent.type(screen.getByLabelText('Sueltas de Coca 1.5L'), '2');
+      expect(screen.getByText('11 unidades')).toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole('button', { name: /Guardar (conteo|recuento)/ })
+      );
+      expect(create).toHaveBeenCalledWith({
+        entries: [{ productId: '30', counted: 11 }],
+        checkId: 'check-1',
+      });
+    }
+  );
+
   it('adds one pack with the +1 button', async () => {
     render(
       <MemoryRouter>
@@ -377,7 +401,7 @@ describe('CountPage', () => {
       </MemoryRouter>
     );
     const packs = await screen.findByLabelText('Fardos de Coca 1.5L');
-    await userEvent.type(packs, '1,5');
+    await userEvent.type(packs, '1,,5');
     expect(packs).toHaveAttribute('aria-invalid', 'true');
     expect(screen.queryByText(/= .* u\./)).not.toBeInTheDocument();
     await userEvent.click(

@@ -680,7 +680,7 @@ export function CountPage() {
                         <span className="text-sm font-bold">{packLabel}</span>
                         <Input
                           aria-label={`${packLabel} de ${p.name}`}
-                          inputMode="numeric"
+                          inputMode="decimal"
                           autoComplete="off"
                           placeholder="—"
                           aria-invalid={badPacks || undefined}
